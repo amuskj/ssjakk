@@ -63,21 +63,45 @@ AVATAR_ACCOUNT_OVERRIDE = {
 HEADERS = {"User-Agent": "SSJakk-Leaderboard/1.0 (contact: a.skjellstad@gmail.com)"}
 
 # ---------------------------------------------------------------------------
-# Every "Hopen Arena" tournament played so far, oldest first. Each entry can
-# be a full tournament URL or just the id (the part after /tournament/ or
-# /tournament/live/arena/ in the URL) — both forms work. Shared by
-# backfill_sunday.py and build_games.py so a new week only needs adding here.
+# Every tournament played so far, oldest first. Each entry can use a full
+# tournament URL or just the id (the part after /tournament/ or
+# /tournament/live/arena/ in the URL) — both forms work.
 #
-# Add this week's tournament here after every Sunday session.
+# `series` groups a tournament with others of its kind. "hopen" is the
+# regular weekly series — its weeks feed the cumulative Sunday Standings
+# podium/leaderboard. Anything else (a one-off memorial arena, a holiday
+# tournament, etc.) gets its own series key: give it a short slug, add an
+# entry for it in SERIES below (cumulative: False keeps it out of the main
+# leaderboard math and shows it as its own "special event" card instead),
+# and it's handled the same way any future one-off will be — no other code
+# changes needed. All arena games, from every series, still count toward
+# the arena-only head-to-head graph, the Rivalry tab (lifetime, unaffected
+# by this list), and everything on the Trends tab.
+#
+# Shared by backfill_sunday.py and build_games.py, so a new week (or a new
+# one-off event) only needs adding here.
 # ---------------------------------------------------------------------------
-TOURNAMENT_IDS = [
-    "hopen-31162139",
-    "hopen-31181223",
-    "hopen-arena-31263405",
-    "hopen-arena-31263415",
-    "hopen-arena-31051706",
-    "hopen-31068160",
+TOURNAMENTS = [
+    {"id": "hopen-31162139", "series": "hopen"},
+    {"id": "hopen-31181223", "series": "hopen"},
+    {"id": "hopen-arena-31263405", "series": "hopen"},
+    {"id": "hopen-arena-31263415", "series": "hopen"},
+    {"id": "hopen-arena-31051706", "series": "hopen"},
+    {"id": "hopen-31068160", "series": "hopen"},
+    {"id": "bjorn-jens-memorial-31068698", "series": "bjorn-jens-memorial"},
 ]
+
+# Metadata per series. `cumulative: True` means the series' weeks count
+# toward the main Sunday Standings podium and leaderboard math; `False`
+# means it gets its own "special event" section instead, kept separate.
+SERIES = {
+    "hopen": {"label": "Hopen Arena", "cumulative": True},
+    "bjorn-jens-memorial": {"label": "Bjørn Jens Memorial Arena", "cumulative": False},
+}
+
+# Backward-compatible flat id list — build_games.py just wants every game
+# from every series regardless of cumulative status, so it reads this.
+TOURNAMENT_IDS = [t["id"] for t in TOURNAMENTS]
 
 
 def extract_id(entry):

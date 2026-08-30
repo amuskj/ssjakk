@@ -9,14 +9,34 @@ load time.
   `ratings.json` — each member's own blitz rating over time (one point per
   day they played, across all opponents, not just club games).
 - `backfill_sunday.py` regenerates `sunday.json` — results from the weekly
-  "Hopen Arena" tournaments, plus an arena-only head-to-head graph.
+  "Hopen Arena" tournaments (cumulative podium/leaderboard), any one-off
+  special events (their own section, see below), plus an arena-only
+  head-to-head graph spanning both.
 - `build_games.py` regenerates `games.json` — every individual game from
-  every arena (ratings, clock times, opening, move count, and accuracy where
-  it exists), which powers the Trends tab: the arena rating chart, the full
-  match log, the sweaty-game leaderboard, the opening breakdown, and the
-  club-record lists.
+  every tournament, regular or special (ratings, clock times, opening, move
+  count, and accuracy where it exists), which powers the Trends tab: the
+  arena rating chart, the full match log, the sweaty-game leaderboard, the
+  opening breakdown, and the club-record lists.
 - `config.py` holds the shared roster, the tournament list, and the
   "nemesis" calculation that all three scripts import from.
+
+### Tournament series (regular weeks vs. one-off events)
+
+`config.py`'s `TOURNAMENTS` list tags every tournament with a `series` —
+`"hopen"` for the regular weekly arena, or a short slug of its own for a
+one-off (a memorial arena, a holiday tournament, etc). `SERIES` in the same
+file says whether a series counts toward the cumulative Sunday Standings
+podium (`cumulative: True`, the default for "hopen") or gets its own
+"special event" card instead (`cumulative: False`) — a compact podium and
+full standings, kept separate so a single guest-heavy one-off can't skew
+the regular season. Either way, its games still count everywhere else: the
+arena-only head-to-head graph, the Rivalry tab (which is lifetime and
+doesn't care about this list at all), and every chart on the Trends tab.
+
+To add a future one-off: give it a new `series` slug in `TOURNAMENTS`, add
+a matching entry to `SERIES` with `"cumulative": False` and a display
+label, and re-run `backfill_sunday.py` / `build_games.py` — no other code
+changes needed.
 
 ### What "Nemesis" means here
 
@@ -76,12 +96,13 @@ git push
 ```
 
 Before running `backfill_sunday.py` or `build_games.py`, add that week's
-tournament URL (or just the id, e.g. `hopen-31068160`) to the
-`TOURNAMENT_IDS` list in `config.py` — Chess.com creates a new tournament
-link every week, so this list is the one thing that needs a manual touch
-each time, and both scripts read the same list. Find the link from the
-club's page on Chess.com (`chess.com/club/ssjakk`, logged in) under its past
-events.
+tournament to the `TOURNAMENTS` list in `config.py` — `{"id": "hopen-31068160",
+"series": "hopen"}` for a regular week, or a new `series` slug (plus an
+entry in `SERIES`) for a one-off event — see "Tournament series" above.
+Chess.com creates a new tournament link every week, so this list is the one
+thing that needs a manual touch each time, and both scripts read the same
+list. Find the link from the club's page on Chess.com
+(`chess.com/club/ssjakk`, logged in) under its past events.
 
 The site picks up new data automatically within a minute of the push
 (no rebuild step — these are static files the page fetches on load).
@@ -100,10 +121,10 @@ Re-run all three afterward.
   controls — not just games played during Sunday club sessions. The Sunday
   Standings tab's graph and the Trends tab are both scoped to just the
   Sunday arenas.
-- "Biggest upset" is the largest rating gap in a decisive (non-drawn) arena
-  game where the lower-rated player won — it isn't an engine-based brilliancy
-  detector. Real move-quality analysis (Stockfish over each game's PGN) is a
-  future addition, not yet built.
+- The Trends tab's "Biggest upsets" list ranks decisive (non-drawn) games by
+  rating gap where the lower-rated player won — it isn't an engine-based
+  brilliancy detector. Real move-quality analysis (Stockfish over each
+  game's PGN) is a future addition, not yet built.
 - Accuracy is opportunistic (see above) — most games won't have it yet.
 - The Trends tab has two rating charts. "Arena Rating" plots each player's
   live rating as sampled at every Hopen Arena game, so it also reflects

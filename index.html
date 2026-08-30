@@ -285,6 +285,18 @@
   .upset-card a { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .upset-card a:hover { text-decoration: underline; }
 
+  /* ---------- special events (one-off tournaments, kept out of the Hopen podium) ---------- */
+  .special-events-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px; }
+  .special-event-card {
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 16px;
+    padding: 18px 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .special-event-card .week-head { margin-bottom: 16px; }
+  .podium.compact { margin-bottom: 16px; }
+
   /* ---------- weekly results ---------- */
   .week-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
   .week-card {
@@ -542,6 +554,10 @@
   <!-- SUNDAY STANDINGS -->
   <div class="panel active" id="panel-sunday">
     <div id="sundayPodium" class="podium"></div>
+
+    <div class="section-label" id="sundaySpecialLabel" style="display:none;">Special events</div>
+    <div id="sundaySpecialEvents" class="special-events-list"></div>
+
     <div id="sundayWeeks" class="week-list"></div>
 
     <div class="graph-card" id="sundayGraphCard" style="display:none;">
@@ -668,6 +684,8 @@ function showError(title, detail) {
 }
 function showSundayEmpty(title, detail) {
   document.getElementById('sundayPodium').innerHTML = '';
+  document.getElementById('sundaySpecialEvents').innerHTML = '';
+  document.getElementById('sundaySpecialLabel').style.display = 'none';
   document.getElementById('sundayWeeks').innerHTML =
     '<div class="empty-state"><div class="icon">&#128197;</div><h3>' + title + '</h3><p>' + detail + '</p></div>';
   document.getElementById('sundayFoot').innerHTML = '';
@@ -843,6 +861,8 @@ function renderSunday(sunday) {
     podiumEl.appendChild(card);
   });
 
+  renderSpecialEvents(sunday, avatarById);
+
   // weekly results, most recent first
   const weeksEl = document.getElementById('sundayWeeks');
   const weeksDesc = [...(sunday.weeks || [])].reverse();
@@ -856,7 +876,47 @@ function renderSunday(sunday) {
   `).join('');
 
   document.getElementById('sundayFoot').innerHTML =
-    `${(sunday.weeks || []).length} arenas tracked &middot; generated ${new Date(sunday.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
+    `${(sunday.weeks || []).length} Hopen arenas tracked &middot; generated ${new Date(sunday.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
+}
+
+// One-off tournaments (a memorial arena, a holiday event, ...) get their
+// own card here instead of feeding the regular Hopen podium/leaderboard —
+// each with its own compact 1-on-top-2-below podium and full standings.
+function renderSpecialEvents(sunday, avatarById) {
+  const events = sunday.specialEvents || [];
+  const label = document.getElementById('sundaySpecialLabel');
+  const container = document.getElementById('sundaySpecialEvents');
+  if (!events.length) {
+    label.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  label.style.display = '';
+
+  const rankClass = ['rank-1', 'rank-2', 'rank-3'];
+  const rankIcon = ['&#129351;', '&#129352;', '&#129353;'];
+
+  container.innerHTML = events.map(ev => {
+    const top3 = ev.standings.slice(0, 3);
+    const podiumHtml = top3.map((s, i) => `
+      <div class="podium-card ${rankClass[i]}">
+        <span class="rank-badge">${rankIcon[i]}</span>
+        ${avatarOrFallback({ displayName: s.displayName, avatar: avatarById[s.person] }, i === 0 ? 72 : 54)}
+        <div>
+          <div class="podium-name">${s.displayName}</div>
+          <div class="podium-metric"><b>${s.points}</b> pts</div>
+        </div>
+      </div>`).join('');
+    const rowsHtml = ev.standings.map(s =>
+      `<div class="week-row place-${s.place}"><span class="place">${s.place}</span><span class="pname">${s.displayName}</span><span class="pts">${s.points} pts</span></div>`
+    ).join('');
+    return `
+      <div class="special-event-card">
+        <div class="week-head"><span class="name">${ev.name}</span><span class="date">${ev.seriesLabel || ''} &middot; ${formatDate(ev.date)} &middot; ${ev.playerCount} players</span></div>
+        <div class="podium compact">${podiumHtml}</div>
+        <div class="week-rows">${rowsHtml}</div>
+      </div>`;
+  }).join('');
 }
 
 // ---------- Trends: helpers ----------

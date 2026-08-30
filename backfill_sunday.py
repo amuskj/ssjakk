@@ -2,13 +2,17 @@
 """
 SSJakk Sunday Standings backfill / refresh.
 
-Pulls full results (standings + per-game ratings) for every known "Hopen
-Arena" tournament, tallies a cumulative Sunday leaderboard, finds the
-biggest rating upset of each week, and writes sunday.json next to this
-script (which index.html loads at page load for the Sunday Standings tab).
+Pulls full results (standings + per-game ratings) for every known
+tournament, tallies a cumulative Sunday leaderboard from the regular
+"hopen" series, finds each week's biggest rating upset, and writes
+sunday.json next to this script (which index.html loads at page load for
+the Sunday Standings tab). A tournament in any other series (a one-off
+memorial or holiday arena) is kept out of that cumulative leaderboard and
+written to its own "specialEvents" list instead, so it gets its own
+section/podium on the site without skewing the regular-season standings.
 
-Run it after each Sunday session — paste that week's tournament URL/id
-into TOURNAMENT_IDS below, then:
+Run it after each Sunday session — add that week's tournament to
+TOURNAMENTS in config.py, then:
 
     python backfill_sunday.py
     git add sunday.json backfill_sunday.py
@@ -28,14 +32,18 @@ from config import (
     USERNAME_TO_PERSON,
     DISPLAY_NAMES,
     HEADERS,
-    TOURNAMENT_IDS,
+    TOURNAMENTS,
+    SERIES,
     extract_id,
     compute_nemesis,
 )
 
-# Add this week's tournament id (or full URL) to TOURNAMENT_IDS in config.py
-# after every Sunday session — build_games.py reads the same list, so it
-# only needs updating in one place.
+# Add this week's tournament (id or full URL, plus its series) to
+# TOURNAMENTS in config.py after every Sunday session — build_games.py
+# reads the same list, so it only needs updating in one place. A regular
+# week uses series "hopen"; a one-off event gets its own series key (see
+# the comment above TOURNAMENTS in config.py) and shows up here as its own
+# "special event" instead of feeding the main Sunday podium/leaderboard.
 
 OUT_FILE = "sunday.json"
 
@@ -200,16 +208,25 @@ def process_tournament(tid):
 
 def main():
     weeks = []
+    special_events = []
     all_games = []
-    for entry in TOURNAMENT_IDS:
-        tid = extract_id(entry)
-        print(f"Fetching {tid}...")
+    for t in TOURNAMENTS:
+        tid = extract_id(t["id"])
+        series = t.get("series", "hopen")
+        print(f"Fetching {tid} ({series})...")
         result = process_tournament(tid)
-        if result:
-            week, games = result
+        if not result:
+            continue
+        week, games = result
+        week["series"] = series
+        week["seriesLabel"] = SERIES.get(series, {}).get("label", series)
+        all_games.extend(games)
+        if SERIES.get(series, {}).get("cumulative", True):
             weeks.append(week)
-            all_games.extend(games)
+        else:
+            special_events.append(week)
     weeks.sort(key=lambda w: w["date"] or "")
+    special_events.sort(key=lambda w: w["date"] or "")
 
     players, edges = build_arena_graph(all_games)
 
@@ -241,23 +258,18 @@ def main():
         cumulative.append(a)
     cumulative.sort(key=lambda a: (-a["firsts"], -a["podiums"], a["avgPlace"] or 99))
 
-    biggest_upset_overall = None
-    for w in weeks:
-        if w["upset"] and (biggest_upset_overall is None or w["upset"]["gap"] > biggest_upset_overall["gap"]):
-            biggest_upset_overall = {**w["upset"], "week": w["date"], "tournamentId": w["id"]}
-
     out = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "weeks": weeks,
         "cumulative": cumulative,
-        "biggestUpsetOverall": biggest_upset_overall,
+        "specialEvents": special_events,
         "players": players,
         "edges": edges,
     }
     with open(OUT_FILE, "w") as f:
         json.dump(out, f, indent=None)
 
-    print(f"\nWrote {OUT_FILE}: {len(weeks)} weeks, {len(cumulative)} players.")
+    print(f"\nWrote {OUT_FILE}: {len(weeks)} Hopen weeks, {len(special_events)} special events, {len(cumulative)} players.")
 
 
 if __name__ == "__main__":
