@@ -1,0 +1,15 @@
+{
+  "name": "SSJakk Club Leaderboard",
+  "short_name": "SSJakk",
+  "description": "Sunday Standings, Rivalry and Trends for the SSJakk chess club.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f6f2",
+  "theme_color": "#163a5c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

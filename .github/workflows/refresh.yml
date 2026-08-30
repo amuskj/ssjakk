@@ -1,0 +1,80 @@
+name: Refresh SSJakk leaderboard
+
+# Runs the whole data pipeline with no one touching a laptop:
+#  - daily, so every player's current blitz/rapid/bullet rating and lifetime
+#    rating history stay fresh even on a quiet week
+#  - every 15 minutes through a wide Sunday window, so this week's arena
+#    results (and the Discord recap) show up soon after the session ends
+#  - on demand, from the Actions tab (works great from a phone) -- paste a
+#    brand-new tournament's link into tournament_url and this both registers
+#    it AND runs the full refresh in one go. Chess.com has no public,
+#    login-free way to list a private club's tournaments or find them in a
+#    member's own tournament history (both checked), so noticing a *new*
+#    week's own tournament is the one thing that still needs a person -- this
+#    is that one 15-second step instead of editing config.py by hand.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+    - cron: '*/15 8-23 * * 0'
+  workflow_dispatch:
+    inputs:
+      tournament_url:
+        description: 'New tournament URL or id (leave blank for a routine refresh)'
+        required: false
+        type: string
+      series:
+        description: 'Series slug -- "hopen" for a regular week, or a one-off slug already listed in config.py''s SERIES'
+        required: false
+        default: 'hopen'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ssjakk-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Register a new tournament (manual trigger only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tournament_url
+        run: python add_tournament.py --url "${{ github.event.inputs.tournament_url }}" --series "${{ github.event.inputs.series }}"
+
+      - name: Refresh lifetime rivalry + rating history
+        run: python refresh.py
+
+      - name: Refresh Sunday Standings + storylines
+        run: python backfill_sunday.py
+
+      - name: Rebuild full game log
+        run: python build_games.py
+
+      - name: Post weekly Discord recap
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python post_recap.py
+
+      - name: Commit and push if anything changed
+        run: |
+          git config user.name "ssjakk-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.json ratings.json sunday.json games.json
+          [ -f discovered_tournaments.json ] && git add discovered_tournaments.json
+          [ -f .last_recap_week ] && git add .last_recap_week
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "Automated data refresh"
+            git push
+          fi

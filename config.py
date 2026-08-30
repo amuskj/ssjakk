@@ -99,11 +99,6 @@ SERIES = {
     "bjorn-jens-memorial": {"label": "Bjørn Jens Memorial Arena", "cumulative": False},
 }
 
-# Backward-compatible flat id list — build_games.py just wants every game
-# from every series regardless of cumulative status, so it reads this.
-TOURNAMENT_IDS = [t["id"] for t in TOURNAMENTS]
-
-
 def extract_id(entry):
     m = re.search(r"tournament/(?:live/arena/)?([a-z0-9\-]+)", entry, re.I)
     return m.group(1) if m else entry
@@ -140,3 +135,32 @@ def compute_nemesis(person_ids, edges, thresholds=(5, 3, 1)):
                 break
         result[p] = {"nemesis": nemesis, "nemesisScore": per_opp[p].get(nemesis) if nemesis else None}
     return result, per_opp
+
+
+# ---------------------------------------------------------------------------
+# Tournaments added via add_tournament.py (see that file) land in
+# discovered_tournaments.json and get merged in here. Chess.com has no
+# public way to list a private club's tournaments or find them in a
+# member's own tournament history (both checked and ruled out), so a new
+# week's tournament link still has to come from a person -- add_tournament.py
+# is what makes that a one-line command (or a GitHub Actions "Run workflow"
+# button tap with the link pasted in) instead of a manual config.py edit.
+# ---------------------------------------------------------------------------
+import json as _json
+import os as _os
+
+_DISCOVERED_FILE = _os.path.join(_os.path.dirname(__file__), "discovered_tournaments.json")
+if _os.path.exists(_DISCOVERED_FILE):
+    with open(_DISCOVERED_FILE) as _f:
+        _discovered = _json.load(_f)
+    _known_ids = {extract_id(_t["id"]) for _t in TOURNAMENTS}
+    for _t in _discovered:
+        _tid = extract_id(_t["id"])
+        if _tid not in _known_ids:
+            TOURNAMENTS.append(_t)
+            _known_ids.add(_tid)
+
+# Backward-compatible flat id list - build_games.py just wants every game
+# from every series regardless of cumulative status, so it reads this.
+# Computed last so newly-discovered weeks (just above) are included.
+TOURNAMENT_IDS = [t["id"] for t in TOURNAMENTS]

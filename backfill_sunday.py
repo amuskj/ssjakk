@@ -68,6 +68,82 @@ def outcome(g):
     return "draw"
 
 
+def compute_week_rating_swings(games):
+    """Per-account first-vs-last rating this week, ordered by end_time --
+    powers the "biggest rating gain" storyline. Draws and losses count too;
+    this is about rating movement, not results."""
+    by_user = {}
+    for g in games:
+        et = g.get("end_time")
+        if not et:
+            continue
+        for side in ("white", "black"):
+            info = g.get(side, {})
+            u = (info.get("username") or "").lower()
+            rating = info.get("rating")
+            if u and rating is not None:
+                by_user.setdefault(u, []).append((et, rating))
+    swings = []
+    for u, pts in by_user.items():
+        pts.sort(key=lambda x: x[0])
+        if len(pts) >= 2:
+            swings.append({"username": u, "gain": pts[-1][1] - pts[0][1],
+                           "fromRating": pts[0][1], "toRating": pts[-1][1]})
+    return swings
+
+
+def compute_form(all_games, n=5):
+    """Each person's last n arena results, oldest first ('W'/'L'/'D'),
+    merged across alt accounts by actual chronological order (not just
+    concatenated per-username) -- powers the little form-pill row on the
+    Sunday Standings tab and the player detail card."""
+    per_person_pts = {}
+    for g in all_games:
+        et = g.get("end_time") or 0
+        res = outcome(g)
+        for side in ("white", "black"):
+            u = (g.get(side, {}).get("username") or "").lower()
+            if not u:
+                continue
+            p = person_for(u)
+            code = "D" if res == "draw" else ("W" if res == side else "L")
+            per_person_pts.setdefault(p, []).append((et, code))
+    result = {}
+    for p, pts in per_person_pts.items():
+        pts.sort(key=lambda x: x[0])
+        result[p] = [c for _, c in pts[-n:]]
+    return result
+
+
+def compute_active_streaks(all_games):
+    """Longest *current* (still-active, most-recent-games-back) win streak
+    per person across every arena game played so far, chronologically."""
+    per_user = {}
+    for g in sorted(all_games, key=lambda g: g.get("end_time") or 0):
+        res = outcome(g)
+        for side in ("white", "black"):
+            u = (g.get(side, {}).get("username") or "").lower()
+            if not u:
+                continue
+            per_user.setdefault(u, []).append(res == side)
+
+    per_person = {}
+    for u, results in per_user.items():
+        p = person_for(u)
+        per_person.setdefault(p, []).extend(results)
+
+    streaks = {}
+    for p, results in per_person.items():
+        streak = 0
+        for is_win in reversed(results):
+            if is_win:
+                streak += 1
+            else:
+                break
+        streaks[p] = streak
+    return streaks
+
+
 def build_arena_graph(all_games):
     """Person-merged head-to-head graph scoped to just these arena games
     (mirrors refresh.py's lifetime version, but only over Sunday arenas)."""
@@ -222,6 +298,7 @@ def main():
     weeks = []
     special_events = []
     all_games = []
+    games_by_tid = {}
     for t in TOURNAMENTS:
         tid = extract_id(t["id"])
         series = t.get("series", "hopen")
@@ -232,6 +309,7 @@ def main():
         week, games = result
         week["series"] = series
         week["seriesLabel"] = SERIES.get(series, {}).get("label", series)
+        games_by_tid[tid] = games
         all_games.extend(games)
         if SERIES.get(series, {}).get("cumulative", True):
             weeks.append(week)
@@ -241,6 +319,9 @@ def main():
     special_events.sort(key=lambda w: w["date"] or "")
 
     players, edges = build_arena_graph(all_games)
+    form_by_person = compute_form(all_games)
+    for p in players:
+        p["form"] = form_by_person.get(p["id"], [])
 
     # ---- cumulative Sunday leaderboard ----
     agg = {}
@@ -267,8 +348,70 @@ def main():
     for a in agg.values():
         a["avgPlace"] = round(a["placeSum"] / a["weeksPlayed"], 2) if a["weeksPlayed"] else None
         del a["placeSum"]
+        a["form"] = form_by_person.get(a["person"], [])
         cumulative.append(a)
     cumulative.sort(key=lambda a: (-a["firsts"], -a["podiums"], a["avgPlace"] or 99))
+
+    # ---- this week's storylines: biggest upset (already computed per-week
+    # above), biggest rating gain, longest active win streak among this
+    # week's players, and whether the cumulative #1 changed -- surfaced as
+    # a callout on the site and fed into the automated Discord recap. ----
+    storylines = None
+    if weeks:
+        latest = weeks[-1]
+        latest_games = games_by_tid.get(latest["id"], [])
+
+        rating_gain = None
+        gains = [s for s in compute_week_rating_swings(latest_games) if s["gain"] > 0]
+        if gains:
+            best = max(gains, key=lambda s: s["gain"])
+            p = person_for(best["username"])
+            rating_gain = {
+                "person": p, "displayName": DISPLAY_NAMES.get(p, p),
+                "gain": best["gain"], "fromRating": best["fromRating"], "toRating": best["toRating"],
+            }
+
+        streak_entry = None
+        streaks = compute_active_streaks(all_games)
+        latest_participants = {s["person"] for s in latest["standings"]}
+        eligible = {p: n for p, n in streaks.items() if p in latest_participants and n >= 2}
+        if eligible:
+            top_p = max(eligible, key=eligible.get)
+            streak_entry = {"person": top_p, "displayName": DISPLAY_NAMES.get(top_p, top_p), "length": eligible[top_p]}
+
+        new_leader = None
+        if len(weeks) >= 2:
+            prior_agg = {}
+            for w in weeks[:-1]:
+                for s in w["standings"]:
+                    a = prior_agg.setdefault(s["person"], {"firsts": 0, "podiums": 0, "placeSum": 0, "weeksPlayed": 0})
+                    a["weeksPlayed"] += 1
+                    a["placeSum"] += s["place"] or 0
+                    if s["place"] == 1:
+                        a["firsts"] += 1
+                    if s["place"] and s["place"] <= 3:
+                        a["podiums"] += 1
+            prior_ranked = sorted(
+                prior_agg.items(),
+                key=lambda kv: (-kv[1]["firsts"], -kv[1]["podiums"],
+                                 (kv[1]["placeSum"] / kv[1]["weeksPlayed"]) if kv[1]["weeksPlayed"] else 99),
+            )
+            prior_leader = prior_ranked[0][0] if prior_ranked else None
+            current_leader = cumulative[0]["person"] if cumulative else None
+            if prior_leader and current_leader and prior_leader != current_leader:
+                new_leader = {
+                    "person": current_leader, "displayName": DISPLAY_NAMES.get(current_leader, current_leader),
+                    "previousPerson": prior_leader, "previousDisplayName": DISPLAY_NAMES.get(prior_leader, prior_leader),
+                }
+
+        storylines = {
+            "week": latest["id"],
+            "weekDate": latest["date"],
+            "upset": latest.get("upset"),
+            "ratingGain": rating_gain,
+            "streak": streak_entry,
+            "newLeader": new_leader,
+        }
 
     out = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -277,6 +420,7 @@ def main():
         "specialEvents": special_events,
         "players": players,
         "edges": edges,
+        "storylines": storylines,
     }
     with open(OUT_FILE, "w") as f:
         json.dump(out, f, indent=None)

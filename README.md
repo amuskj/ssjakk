@@ -10,18 +10,28 @@ load time.
   day they played, across all opponents, not just club games).
 - `backfill_sunday.py` regenerates `sunday.json` — results from the weekly
   "Hopen Arena" tournaments (cumulative podium/leaderboard), any one-off
-  special events (their own section, see below), plus an arena-only
-  head-to-head graph spanning both. Each week/event also carries its
-  Chess.com time control, time class, and total scheduled duration
-  (`timeControl`, `timeClass`, `durationSec` — from the tournament's own
-  `start_time`/`finish_time`), shown on its card on the site.
+  special events (their own section, see below), an arena-only head-to-head
+  graph spanning both, each player's last-5-results "form", and this
+  week's auto-flagged `storylines` (biggest upset, biggest rating gain,
+  hottest streak, new season leader — also what `post_recap.py` posts to
+  Discord). Each week/event also carries its Chess.com time control, time
+  class, and total scheduled duration (`timeControl`, `timeClass`,
+  `durationSec` — from the tournament's own `start_time`/`finish_time`),
+  shown on its card on the site.
 - `build_games.py` regenerates `games.json` — every individual game from
   every tournament, regular or special (ratings, clock times, opening, move
   count, and accuracy where it exists), which powers the Trends tab: the
   arena rating chart, the full match log, the sweaty-game leaderboard, the
   opening breakdown, and the club-record lists.
 - `config.py` holds the shared roster, the tournament list, and the
-  "nemesis" calculation that all three scripts import from.
+  "nemesis" calculation that all four scripts import from.
+- `add_tournament.py` registers a new tournament (see "Adding a new week's
+  tournament" below) without hand-editing `config.py`.
+- `post_recap.py` posts a Discord message with the latest week's podium and
+  storylines (see "Automatic Discord recap" below).
+- `.github/workflows/refresh.yml` runs all of the above on a schedule (and
+  on demand) so the site updates itself with nobody touching a laptop — see
+  "Automated refresh" below.
 
 ### Tournament series (regular weeks vs. one-off events)
 
@@ -57,6 +67,77 @@ checks for it opportunistically, so most games will show no accuracy at all,
 and that's expected, not a bug. It'll fill in gradually as more games get
 reviewed.
 
+## Automated refresh (GitHub Actions) -- do this once
+
+A GitHub Actions workflow (`.github/workflows/refresh.yml`) now runs the
+whole pipeline with nobody touching a laptop:
+
+- **Daily**, so every player's current blitz/rapid/bullet rating and
+  lifetime rating history stay fresh even on a quiet week.
+- **Every 15 minutes through a wide Sunday window** (08:00-23:45 UTC), so
+  this week's arena results -- and the Discord recap -- show up soon after
+  the session ends.
+- **On demand**, from the repo's Actions tab (works great from a phone) --
+  see "Adding a new week's tournament" below.
+
+One-time setup:
+
+1. Repo **Settings -> Actions -> General -> Workflow permissions** ->
+   select "Read and write permissions" -> Save. (Without this, the
+   workflow can't push its own commits.)
+2. That's it for the refresh itself -- ratings, standings, and everything
+   else on the site now update themselves forever.
+
+### Adding a new week's tournament
+
+Chess.com has no public, login-free way to list a private club's
+tournaments, and a member's own tournament history doesn't include club
+arena events either (both checked and ruled out) -- so noticing a
+*brand-new* week's tournament still needs a person. This is the one
+remaining manual step, and it's now a single action instead of a code
+edit:
+
+1. Grab the new tournament's link from Chess.com (same as always --
+   `chess.com/club/ssjakk`, logged in, under Past Events).
+2. On GitHub: repo's **Actions** tab -> "Refresh SSJakk leaderboard" in the
+   left sidebar -> **Run workflow** -> paste the link into `tournament_url`
+   -> Run workflow. (This works fine from GitHub's mobile app.)
+
+That single tap registers the tournament *and* runs the full refresh (data
++ Discord recap) right away -- no waiting for the next scheduled tick. A
+one-off special event (a memorial arena, a holiday tournament) works the
+same way, just set the `series` input to a slug already listed in
+`config.py`'s `SERIES` dict (or add a new one there first, same as always).
+
+Leaving `tournament_url` blank and running the workflow just triggers an
+ordinary refresh on demand -- handy right after a session if you don't
+want to wait for the 15-minute cron tick.
+
+### Automatic Discord recap
+
+After every refresh that finds a new week, `post_recap.py` posts the
+podium and that week's auto-flagged storylines (biggest upset, biggest
+rating gain, hottest streak, new season leader) to a Discord channel. To
+turn it on:
+
+1. In Discord: the target channel's settings -> Integrations -> Webhooks
+   -> New Webhook -> copy its URL.
+2. On GitHub: repo **Settings -> Secrets and variables -> Actions -> New
+   repository secret** -> name it `DISCORD_WEBHOOK_URL`, paste the webhook
+   URL, save.
+
+Without that secret set, the workflow just prints what it would have
+posted and skips silently -- nothing breaks.
+
+### Installing the site as an app
+
+`manifest.json` + a small service worker (`sw.js`) make the site
+installable: open it on a phone and use the browser's "Add to Home
+Screen" (iOS Safari) or the install prompt (Android Chrome) to get an app
+icon that opens straight to the leaderboard. Only the app shell is cached
+for offline use -- the JSON data files always come from the network, so
+the numbers you see are never stale on purpose.
+
 ## One-time setup (GitHub Pages + ssjakk.no)
 
 1. Create a new **public** repo on GitHub, e.g. `ssjakk-leaderboard`.
@@ -84,7 +165,11 @@ reviewed.
 Once that's done, `https://ssjakk.no` serves this site directly, and stays live
 with zero further setup.
 
-## Weekly refresh
+## Weekly refresh (manual / local -- optional now)
+
+GitHub Actions handles this automatically now (see "Automated refresh"
+above); this section is for running things by hand locally instead, if
+you ever want to (debugging, or before Actions was set up):
 
 After each Sunday session:
 
