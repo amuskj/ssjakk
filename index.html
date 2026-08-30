@@ -125,11 +125,18 @@
   }
   .topbar-peaks {
     position: absolute;
-    left: 0; right: 0; bottom: 8px;
-    width: 100%; height: 44px;
+    left: 0; right: 0; bottom: 4px;
+    width: 100%; height: 54px;
     color: var(--accent);
-    opacity: 0.16;
+    opacity: 0.55;
     pointer-events: none;
+  }
+  .topbar-peaks path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   .brand, .theme-toggle { position: relative; z-index: 1; }
   .brand { display: flex; align-items: center; gap: 12px; }
@@ -642,8 +649,11 @@
 <div class="shell">
   <div class="topbar">
     <svg class="topbar-peaks" viewBox="0 0 700 100" preserveAspectRatio="none" aria-hidden="true">
-      <title>De Syv Søstre, seen from Sandnessjøen</title>
-      <polygon fill="currentColor" points="0,100 50,30 100,85 150,45 200,85 250,20 300,85 350,40 400,85 450,25 500,85 550,50 600,85 650,15 700,100"></polygon>
+      <title>De Syv Søstre, seen from Sandnessjøen &mdash; and two old rivals still playing it out on the ridge</title>
+      <path d="M0,70 Q25,70 50,30 Q75,70 100,70 Q125,70 150,42 Q175,70 200,70 Q225,70 250,22 Q275,70 300,70 Q325,70 350,38 Q375,70 400,70 Q425,70 450,28 Q475,70 500,70 Q525,70 550,48 Q575,70 600,70 Q625,70 650,18 Q675,70 700,70"></path>
+      <path d="M336,79 Q331,86 344,90 M364,79 Q369,86 356,90 M340,90 h20 v6 h-20 z M350,90 v6" stroke-width="1.1"></path>
+      <circle cx="336" cy="76" r="2.6" fill="currentColor" stroke="none"></circle>
+      <circle cx="364" cy="76" r="2.6" fill="currentColor" stroke="none"></circle>
     </svg>
     <div class="brand">
       <span class="crest" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">&#9818;</span>
