@@ -246,6 +246,35 @@
   .podium-metric { font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
   .podium-metric b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
+  /* ---------- Sunday: podium/points mode toggle ---------- */
+  .mode-toggle {
+    display: inline-flex; gap: 2px; background: var(--surface-2);
+    border-radius: 10px; padding: 3px; margin-bottom: 16px;
+  }
+  .mode-toggle .mode-btn {
+    border: none; background: transparent; color: var(--ink-dim);
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    padding: 7px 14px; border-radius: 7px; cursor: pointer;
+  }
+  .mode-toggle .mode-btn.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+  /* ---------- Sunday: full standings list (all players, active mode) ---------- */
+  .full-standings {
+    background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
+    padding: 6px 16px; margin-bottom: 28px; box-shadow: var(--shadow);
+  }
+  .full-standings .fs-row {
+    display: grid; grid-template-columns: 22px 30px 1fr auto; gap: 10px; align-items: center;
+    padding: 8px 2px; font-size: 13px; border-bottom: 1px solid var(--ring); cursor: pointer;
+  }
+  .full-standings .fs-row:last-child { border-bottom: none; }
+  .full-standings .fs-row:hover { background: var(--surface-2); margin: 0 -8px; padding: 8px; border-radius: 8px; }
+  .full-standings .fs-rank { font-family: var(--disp); font-weight: 700; color: var(--ink-mute); font-size: 12px; }
+  .full-standings .fs-row.top3 .fs-rank { color: var(--gold); }
+  .full-standings .fs-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .full-standings .fs-metric { font-size: 11.5px; color: var(--ink-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .full-standings .fs-metric b { color: var(--ink); }
+
   /* ---------- win/loss/draw chips ---------- */
   .chip { font-weight: 700; font-variant-numeric: tabular-nums; }
   .chip.win { color: var(--win); }
@@ -308,10 +337,19 @@
     transition: box-shadow 0.15s ease;
   }
   .week-card:hover { box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
+  .week-card[data-week-id] { cursor: pointer; }
   .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-  .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; }
-  .week-head .date { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; }
+  .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .week-head .week-toggle { font-size: 10px; color: var(--ink-mute); transition: transform 0.15s ease; }
+  .week-card.open .week-toggle { transform: rotate(180deg); }
+  .week-head .date {
+    font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap;
+    background: var(--surface-2); padding: 3px 10px; border-radius: 999px;
+  }
   .week-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 6px; }
+  .week-games-panel { flex-direction: column; gap: 6px; }
+  .week-games-panel:not([hidden]) { display: flex; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ring); }
+  .week-games-panel .log-row { cursor: default; }
   .week-row { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 8px; font-size: 12.5px; }
   .week-row.place-1 { background: var(--gold-wash); }
   .week-row.place-2 { background: var(--silver-wash); }
@@ -424,8 +462,11 @@
     font-size: 12px; padding: 8px 10px; border-radius: 9px; background: var(--surface-2);
   }
   .opp-row .name { font-weight: 600; }
-  .opp-row .bar-wrap { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--loss-wash); overflow: hidden; }
-  .opp-row .bar-fill { height: 100%; background: var(--win); }
+  .opp-row .bar-wrap { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--surface); overflow: hidden; display: flex; }
+  .opp-row .bar-seg { height: 100%; }
+  .opp-row .bar-seg.win { background: var(--win); }
+  .opp-row .bar-seg.draw { background: var(--draw); }
+  .opp-row .bar-seg.loss { background: var(--loss); }
   .opp-row .score { font-size: 11px; color: var(--ink-mute); white-space: nowrap; }
 
   .foot {
@@ -553,12 +594,18 @@
 
   <!-- SUNDAY STANDINGS -->
   <div class="panel active" id="panel-sunday">
+    <div class="mode-toggle" id="sundayModeToggle">
+      <button class="mode-btn active" data-mode="podium">Podium finishes</button>
+      <button class="mode-btn" data-mode="points">Total points</button>
+    </div>
     <div id="sundayPodium" class="podium"></div>
+    <div id="sundayFullStandings" class="full-standings"></div>
+
+    <div class="section-label">Hopen Arena &middot; weekly results</div>
+    <div id="sundayWeeks" class="week-list"></div>
 
     <div class="section-label" id="sundaySpecialLabel" style="display:none;">Special events</div>
     <div id="sundaySpecialEvents" class="special-events-list"></div>
-
-    <div id="sundayWeeks" class="week-list"></div>
 
     <div class="graph-card" id="sundayGraphCard" style="display:none;">
       <div class="graph-head">
@@ -658,6 +705,7 @@ let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
 let NAME_MAP = {};
+let sundayMode = 'podium';
 const graphsBuilt = {};
 const graphApi = {};
 const TREND_PALETTE = ['#2a78d6','#a9821c','#7b5ea7','#c9622f','#2f9e8f','#c94f7c','#5c8a3a','#8a6d3b','#4a6fa5','#a34a4a'];
@@ -684,6 +732,7 @@ function showError(title, detail) {
 }
 function showSundayEmpty(title, detail) {
   document.getElementById('sundayPodium').innerHTML = '';
+  document.getElementById('sundayFullStandings').innerHTML = '';
   document.getElementById('sundaySpecialEvents').innerHTML = '';
   document.getElementById('sundaySpecialLabel').style.display = 'none';
   document.getElementById('sundayWeeks').innerHTML =
@@ -839,13 +888,38 @@ async function boot() {
 }
 
 // ---------- Sunday Standings rendering ----------
-function renderSunday(sunday) {
-  const avatarById = {};
-  (sunday.players || []).forEach(p => avatarById[p.id] = p.avatar);
+// Two ranking modes over the same cumulative Hopen Arena data: "podium"
+// (most 1st-place finishes, then podiums, then avg place — the classic
+// view) and "points" (total points earned across every week played, for
+// a longer-term picture). Both modes keep the fancy top-3 podium display,
+// just with the metric text swapped, and both get a full ranked list of
+// every player underneath.
+function computeSundayRankings(sunday, mode) {
+  const list = [...(sunday.cumulative || [])];
+  if (mode === 'points') {
+    list.sort((a, b) => (b.totalPoints - a.totalPoints) || ((a.avgPlace ?? 99) - (b.avgPlace ?? 99)));
+  } else {
+    list.sort((a, b) => (b.firsts - a.firsts) || (b.podiums - a.podiums) || ((a.avgPlace ?? 99) - (b.avgPlace ?? 99)));
+  }
+  return list;
+}
+function sundayMetricHtml(p, mode, big) {
+  if (mode === 'points') {
+    return big
+      ? `<b>${p.totalPoints}</b> total points &middot; ${p.weeksPlayed} weeks played`
+      : `${p.totalPoints} pts &middot; ${p.weeksPlayed}wk`;
+  }
+  return big
+    ? `<b>${p.firsts}</b> firsts &middot; ${p.podiums} podiums &middot; avg #${p.avgPlace}`
+    : `${p.firsts}&#215;1st &middot; ${p.podiums} podiums &middot; avg #${p.avgPlace}`;
+}
+function renderSundayLeaderboard(sunday, avatarById, mode) {
+  sundayMode = mode;
+  const ranked = computeSundayRankings(sunday, mode);
+  const top3 = ranked.slice(0, 3);
 
-  // podium: cumulative Sunday leaderboard (most 1st-place finishes, then podiums, then avg place)
   const podiumEl = document.getElementById('sundayPodium');
-  const top3 = (sunday.cumulative || []).slice(0, 3);
+  podiumEl.innerHTML = '';
   const rankClass = ['rank-1','rank-2','rank-3'];
   const rankIcon = ['&#129351;','&#129352;','&#129353;'];
   top3.forEach((p, i) => {
@@ -855,25 +929,91 @@ function renderSunday(sunday) {
       ${avatarOrFallback({...p, avatar: avatarById[p.person]}, i === 0 ? 72 : 54)}
       <div>
         <div class="podium-name">${p.displayName}</div>
-        <div class="podium-metric"><b>${p.firsts}</b> firsts &middot; ${p.podiums} podiums &middot; avg #${p.avgPlace}</div>
+        <div class="podium-metric">${sundayMetricHtml(p, mode, true)}</div>
       </div>`;
     card.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(p.person));
     podiumEl.appendChild(card);
   });
 
-  renderSpecialEvents(sunday, avatarById);
+  const fsEl = document.getElementById('sundayFullStandings');
+  fsEl.innerHTML = ranked.map((p, i) => `
+    <div class="fs-row ${i < 3 ? 'top3' : ''}" data-person="${p.person}">
+      <span class="fs-rank">${i + 1}</span>
+      ${avatarOrFallback({...p, avatar: avatarById[p.person]}, 28)}
+      <span class="fs-name">${p.displayName}</span>
+      <span class="fs-metric">${sundayMetricHtml(p, mode, false)}</span>
+    </div>
+  `).join('');
+  fsEl.querySelectorAll('.fs-row').forEach(row => {
+    row.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(row.dataset.person));
+  });
+}
 
-  // weekly results, most recent first
+// Click a Hopen Arena week-card to reveal that week's individual games
+// (who won, link to watch), styled like the Trends tab's match log rows.
+function toggleWeekGames(card, week) {
+  const panel = card.querySelector('.week-games-panel');
+  const isOpen = !panel.hasAttribute('hidden');
+  if (isOpen) {
+    panel.setAttribute('hidden', '');
+    card.classList.remove('open');
+    return;
+  }
+  if (!panel.dataset.loaded) {
+    if (GAMES && GAMES.length) {
+      const weekGames = GAMES.filter(g => g.tournamentId === week.id)
+        .slice().sort((a, b) => (a.endTime || 0) - (b.endTime || 0));
+      panel.innerHTML = weekGames.length
+        ? weekGames.map(matchLogRowHtml).join('')
+        : '<div class="empty-state" style="padding:10px 0;"><p>No individual games recorded for this week.</p></div>';
+      panel.dataset.loaded = '1';
+    } else {
+      panel.innerHTML = '<div class="empty-state" style="padding:10px 0;"><p>Game log still loading&hellip;</p></div>';
+    }
+  }
+  panel.removeAttribute('hidden');
+  card.classList.add('open');
+}
+
+function renderSunday(sunday) {
+  const avatarById = {};
+  (sunday.players || []).forEach(p => avatarById[p.id] = p.avatar);
+
+  renderSundayLeaderboard(sunday, avatarById, sundayMode);
+  document.querySelectorAll('#sundayModeToggle .mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === sundayMode);
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#sundayModeToggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSundayLeaderboard(sunday, avatarById, btn.dataset.mode);
+    });
+  });
+
+  // weekly results, most recent first — always shown as "Hopen Arena"
+  // (Chess.com's own tournament name is inconsistent week to week).
   const weeksEl = document.getElementById('sundayWeeks');
   const weeksDesc = [...(sunday.weeks || [])].reverse();
   weeksEl.innerHTML = weeksDesc.map(w => `
-    <div class="week-card">
-      <div class="week-head"><span class="name">${w.name}</span><span class="date">${formatDate(w.date)} &middot; ${w.playerCount} players</span></div>
+    <div class="week-card" data-week-id="${w.id}">
+      <div class="week-head">
+        <span class="name">${w.seriesLabel || w.name} <span class="week-toggle">&#9662;</span></span>
+        <span class="date">${formatDate(w.date)} &middot; ${w.playerCount} players</span>
+      </div>
       <div class="week-rows">
         ${w.standings.map(s => `<div class="week-row place-${s.place}"><span class="place">${s.place}</span><span class="pname">${s.displayName}</span><span class="pts">${s.points} pts</span></div>`).join('')}
       </div>
+      <div class="week-games-panel" hidden></div>
     </div>
   `).join('');
+  weeksEl.querySelectorAll('.week-card').forEach(card => {
+    const week = weeksDesc.find(w => w.id === card.dataset.weekId);
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      toggleWeekGames(card, week);
+    });
+  });
+
+  renderSpecialEvents(sunday, avatarById);
 
   document.getElementById('sundayFoot').innerHTML =
     `${(sunday.weeks || []).length} Hopen arenas tracked &middot; generated ${new Date(sunday.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
@@ -934,6 +1074,24 @@ function personGamesOf(personId, games) {
 }
 
 // ---------- Trends: full match log ----------
+// Shared row template — also reused by the per-week "show games" panel
+// on the Sunday Standings tab, so a Hopen Arena week-card and the Trends
+// match log render identical rows.
+function matchLogRowHtml(g) {
+  const wCls = g.result === 'white' ? 'win' : (g.result === 'draw' ? 'draw' : 'loss');
+  const bCls = g.result === 'black' ? 'win' : (g.result === 'draw' ? 'draw' : 'loss');
+  const accBits = [];
+  if (g.accuracyWhite != null) accBits.push(`W ${g.accuracyWhite.toFixed(1)}%`);
+  if (g.accuracyBlack != null) accBits.push(`B ${g.accuracyBlack.toFixed(1)}%`);
+  const opening = g.openingName ? g.openingName.split(' ').slice(0, 3).join(' ') : g.timeControl;
+  return `<div class="log-row">
+    <span class="lg-date">${formatDate(g.date)}</span>
+    <span class="lg-players"><span class="chip ${wCls}">${g.white.displayName}</span> vs <span class="chip ${bCls}">${g.black.displayName}</span></span>
+    <span class="lg-meta">${opening} &middot; ${g.moveCount}mv${accBits.length ? ' &middot; ' + accBits.join(' / ') : ''}</span>
+    <a class="lg-link" href="${g.url}" target="_blank" rel="noopener noreferrer">Watch &rarr;</a>
+  </div>`;
+}
+
 function renderMatchLog(games) {
   const people = [...new Set(games.flatMap(g => [g.white.person, g.black.person]))]
     .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
@@ -945,20 +1103,8 @@ function renderMatchLog(games) {
   function draw() {
     const rows = [...games].reverse()
       .filter(g => !activePerson || g.white.person === activePerson || g.black.person === activePerson);
-    document.getElementById('trendsLog').innerHTML = rows.map(g => {
-      const wCls = g.result === 'white' ? 'win' : (g.result === 'draw' ? 'draw' : 'loss');
-      const bCls = g.result === 'black' ? 'win' : (g.result === 'draw' ? 'draw' : 'loss');
-      const accBits = [];
-      if (g.accuracyWhite != null) accBits.push(`W ${g.accuracyWhite.toFixed(1)}%`);
-      if (g.accuracyBlack != null) accBits.push(`B ${g.accuracyBlack.toFixed(1)}%`);
-      const opening = g.openingName ? g.openingName.split(' ').slice(0, 3).join(' ') : g.timeControl;
-      return `<div class="log-row">
-        <span class="lg-date">${formatDate(g.date)}</span>
-        <span class="lg-players"><span class="chip ${wCls}">${g.white.displayName}</span> vs <span class="chip ${bCls}">${g.black.displayName}</span></span>
-        <span class="lg-meta">${opening} &middot; ${g.moveCount}mv${accBits.length ? ' &middot; ' + accBits.join(' / ') : ''}</span>
-        <a class="lg-link" href="${g.url}" target="_blank" rel="noopener noreferrer">Watch &rarr;</a>
-      </div>`;
-    }).join('') || '<div class="empty-state"><p>No games match that filter.</p></div>';
+    document.getElementById('trendsLog').innerHTML =
+      rows.map(matchLogRowHtml).join('') || '<div class="empty-state"><p>No games match that filter.</p></div>';
   }
 
   toolbar.querySelectorAll('.player-chip').forEach(btn => {
@@ -1468,12 +1614,14 @@ function buildGraph(key, players, edgesRaw) {
       ${extra}
       <div class="opp-grid">`;
     opp.forEach(o => {
-      const rate = (o.wins + o.draws*0.5) / o.total * 100;
+      const winPct = o.wins / o.total * 100;
+      const drawPct = o.draws / o.total * 100;
+      const lossPct = o.losses / o.total * 100;
       const on = nodesById[o.oppId];
       html += `<div class="opp-row">
         <div class="name">${on.displayName}</div>
         <div class="score"><span class="chip win">${o.wins}</span>-<span class="chip loss">${o.losses}</span>-<span class="chip draw">${o.draws}</span></div>
-        <div class="bar-wrap"><div class="bar-fill" style="width:${rate}%"></div></div>
+        <div class="bar-wrap"><div class="bar-seg win" style="width:${winPct}%"></div><div class="bar-seg draw" style="width:${drawPct}%"></div><div class="bar-seg loss" style="width:${lossPct}%"></div></div>
       </div>`;
     });
     html += `</div>`;
