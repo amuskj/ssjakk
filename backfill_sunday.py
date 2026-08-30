@@ -19,36 +19,25 @@ Requires: pip install requests
 """
 
 import json
-import re
 import sys
 from datetime import datetime, timezone
 
 import requests
 
-from config import USERNAME_TO_PERSON, DISPLAY_NAMES, HEADERS
+from config import (
+    USERNAME_TO_PERSON,
+    DISPLAY_NAMES,
+    HEADERS,
+    TOURNAMENT_IDS,
+    extract_id,
+    compute_nemesis,
+)
 
-# ---------------------------------------------------------------------------
-# Every "Hopen Arena" tournament played so far, oldest first. Each entry can
-# be a full tournament URL or just the id (the part after /tournament/ or
-# /tournament/live/arena/ in the URL) — both forms work.
-#
-# Add this week's tournament here after every Sunday session.
-# ---------------------------------------------------------------------------
-TOURNAMENT_IDS = [
-    "hopen-31162139",
-    "hopen-31181223",
-    "hopen-arena-31263405",
-    "hopen-arena-31263415",
-    "hopen-arena-31051706",
-    "hopen-31068160",
-]
+# Add this week's tournament id (or full URL) to TOURNAMENT_IDS in config.py
+# after every Sunday session — build_games.py reads the same list, so it
+# only needs updating in one place.
 
 OUT_FILE = "sunday.json"
-
-
-def extract_id(entry):
-    m = re.search(r"tournament/(?:live/arena/)?([a-z0-9\-]+)", entry, re.I)
-    return m.group(1) if m else entry
 
 
 def get_json(url):
@@ -136,6 +125,11 @@ def build_arena_graph(all_games):
         pass
     for p in players.values():
         p["avatar"] = avatar_by_person.get(p["id"])
+
+    nemesis_map, _ = compute_nemesis(person_ids, edges)
+    for p in players.values():
+        p["nemesis"] = nemesis_map[p["id"]]["nemesis"]
+        p["nemesisScore"] = nemesis_map[p["id"]]["nemesisScore"]
 
     return list(players.values()), edges
 

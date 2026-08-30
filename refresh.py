@@ -34,6 +34,7 @@ from config import (
     DISPLAY_NAMES,
     AVATAR_ACCOUNT_OVERRIDE,
     HEADERS,
+    compute_nemesis,
 )
 
 # Roster lives in config.py now (shared with backfill_sunday.py) — edit that
@@ -146,19 +147,17 @@ def main():
         per_opp[rec["p1"]][rec["p2"]] = {"wins": rec["p1Wins"], "losses": rec["p2Wins"], "draws": rec["draws"], "total": n}
         per_opp[rec["p2"]][rec["p1"]] = {"wins": rec["p2Wins"], "losses": rec["p1Wins"], "draws": rec["draws"], "total": n}
 
+    nemesis_map, _ = compute_nemesis(person_ids, edges)
     for p in person_ids:
-        nemesis, nemesis_rate = None, 2
+        persons[p]["nemesis"] = nemesis_map[p]["nemesis"]
+        persons[p]["nemesisScore"] = nemesis_map[p]["nemesisScore"]
         favorite, favorite_rate = None, -1
         for opp, rec in per_opp[p].items():
             if rec["total"] < MIN_GAMES_FOR_NEMESIS:
                 continue
             rate = (rec["wins"] + rec["draws"] * 0.5) / rec["total"]
-            if rate < nemesis_rate:
-                nemesis_rate, nemesis = rate, opp
             if rate > favorite_rate:
                 favorite_rate, favorite = rate, opp
-        persons[p]["nemesis"] = nemesis
-        persons[p]["nemesisScore"] = per_opp[p].get(nemesis) if nemesis else None
         persons[p]["favorite"] = favorite
         persons[p]["favoriteScore"] = per_opp[p].get(favorite) if favorite else None
 
