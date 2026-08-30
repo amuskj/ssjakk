@@ -471,7 +471,7 @@ document.getElementById('zoomOut').onclick = () => svg.transition().duration(200
 document.getElementById('zoomReset').onclick = () => svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
 
 const nodes = DATA.players.map(p => ({...p}));
-const links = DATA.edges.map(e => ({...e}));
+const links = DATA.edges.map(e => ({...e, source: e.p1, target: e.p2}));
 
 const sizeScale = d3.scaleSqrt().domain(d3.extent(nodes, d => d.totalGames)).range([20, 38]);
 const widthScale = d3.scaleSqrt().domain([1, d3.max(links, d => d.total)]).range([1, 8]);
