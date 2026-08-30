@@ -27,6 +27,12 @@
     --bronze-wash:  #f3e2d1;
     --edge:         #d8d6cd;
     --edge-hi:      #17181a;
+    --win:          #4e7837;
+    --win-wash:     #e3ecd9;
+    --loss:         #b3452f;
+    --loss-wash:    #f5e2dc;
+    --draw:         #7c7a70;
+    --draw-wash:    #eceae3;
     --shadow:       0 1px 2px rgba(20,20,18,0.04), 0 8px 24px rgba(20,20,18,0.06);
     --disp: 'Space Grotesk', system-ui, sans-serif;
     --sans: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -54,6 +60,12 @@
       --bronze-wash:  rgba(201,132,86,0.14);
       --edge:         #34342f;
       --edge-hi:      #f2f2f0;
+      --win:          #7ab648;
+      --win-wash:     rgba(122,182,72,0.16);
+      --loss:         #e0806a;
+      --loss-wash:    rgba(224,128,106,0.16);
+      --draw:         #a3a196;
+      --draw-wash:    rgba(163,161,150,0.14);
       --shadow:       0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
     }
   }
@@ -78,6 +90,12 @@
     --bronze-wash:  rgba(201,132,86,0.14);
     --edge:         #34342f;
     --edge-hi:      #f2f2f0;
+    --win:          #7ab648;
+    --win-wash:     rgba(122,182,72,0.16);
+    --loss:         #e0806a;
+    --loss-wash:    rgba(224,128,106,0.16);
+    --draw:         #a3a196;
+    --draw-wash:    rgba(163,161,150,0.14);
     --shadow:       0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
   }
 
@@ -197,6 +215,58 @@
   .podium-metric { font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
   .podium-metric b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
+  /* ---------- win/loss/draw chips ---------- */
+  .chip { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chip.win { color: var(--win); }
+  .chip.loss { color: var(--loss); }
+  .chip.draw { color: var(--draw); }
+
+  .section-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-mute); font-weight: 600; margin: 2px 0 10px;
+  }
+
+  /* ---------- upset callout ---------- */
+  .upset-card {
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .upset-card .bolt { font-size: 22px; flex-shrink: 0; }
+  .upset-card .body { flex: 1; min-width: 0; }
+  .upset-card .line { font-family: var(--disp); font-size: 14px; line-height: 1.5; }
+  .upset-card .line .r { font-size: 11.5px; color: var(--ink-mute); font-family: var(--sans); }
+  .upset-card .meta { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; }
+  .upset-card a { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .upset-card a:hover { text-decoration: underline; }
+
+  /* ---------- weekly results ---------- */
+  .week-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .week-card {
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    box-shadow: var(--shadow);
+  }
+  .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; }
+  .week-head .date { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; }
+  .week-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 6px; }
+  .week-row { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 8px; font-size: 12.5px; }
+  .week-row.place-1 { background: var(--gold-wash); }
+  .week-row.place-2 { background: var(--silver-wash); }
+  .week-row.place-3 { background: var(--bronze-wash); }
+  .week-row .place { font-family: var(--disp); font-weight: 700; width: 16px; color: var(--ink-mute); flex-shrink: 0; }
+  .week-row .pname { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .week-row .pts { font-variant-numeric: tabular-nums; color: var(--ink-dim); font-size: 11.5px; flex-shrink: 0; }
+
   /* ---------- empty state (standings tab) ---------- */
   .empty-state {
     background: var(--surface);
@@ -294,8 +364,8 @@
     font-size: 12px; padding: 8px 10px; border-radius: 9px; background: var(--surface-2);
   }
   .opp-row .name { font-weight: 600; }
-  .opp-row .bar-wrap { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--bronze) 45%, var(--surface-2)); overflow: hidden; }
-  .opp-row .bar-fill { height: 100%; background: var(--accent); }
+  .opp-row .bar-wrap { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--loss-wash); overflow: hidden; }
+  .opp-row .bar-fill { height: 100%; background: var(--win); }
   .opp-row .score { font-size: 11px; color: var(--ink-mute); white-space: nowrap; }
 
   .foot {
@@ -329,11 +399,28 @@
 
   <!-- SUNDAY STANDINGS -->
   <div class="panel active" id="panel-sunday">
-    <div class="empty-state">
-      <div class="icon">&#128197;</div>
-      <h3>No arenas recorded yet</h3>
-      <p>This tab will show the podium and standings from your weekly Sunday Arena on Chess.com once results start flowing in. Drop this week's tournament link over whenever it's ready and we'll backfill history here.</p>
+    <div id="sundayPodium" class="podium"></div>
+    <div id="sundayUpset"></div>
+    <div id="sundayWeeks" class="week-list"></div>
+
+    <div class="graph-card" id="sundayGraphCard" style="display:none;">
+      <div class="graph-head">
+        <h2>Head-to-head, Sunday arenas only</h2>
+        <span class="hint">drag &middot; scroll to zoom &middot; click a player</span>
+      </div>
+      <div class="graph-wrap" id="graphPaneSunday">
+        <svg id="vizSunday"></svg>
+        <div class="tooltip" id="tooltipSunday"></div>
+        <div class="zoom-controls">
+          <button id="zoomInSunday">+</button>
+          <button id="zoomOutSunday">&minus;</button>
+          <button id="zoomResetSunday">&#8634;</button>
+        </div>
+      </div>
+      <div class="detail-sheet" id="detailSheetSunday"></div>
     </div>
+
+    <div class="foot" id="sundayFoot"></div>
   </div>
 
   <!-- RIVALRY -->
@@ -363,257 +450,356 @@
 
 <script>
 let DATA = null;
+let SUNDAY = null;
+const graphsBuilt = {};
+const graphApi = {};
+
+function initials(name) {
+  return name.split(/[\s_]+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
+}
+function avatarOrFallback(p, size) {
+  if (p.avatar) return `<img class="avatar" src="${p.avatar}" alt="" width="${size}" height="${size}">`;
+  return `<div class="avatar avatar-fallback" style="width:${size}px;height:${size}px">${initials(p.displayName)}</div>`;
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  return new Date(iso + 'T12:00:00Z').toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+}
+function activeTab() {
+  const el = document.querySelector('.tab.active');
+  return el ? el.dataset.tab : null;
+}
 
 function showError(title, detail) {
   document.getElementById('panel-rivalry').innerHTML =
     '<div class="empty-state"><div class="icon">&#9888;</div><h3>' + title + '</h3><p>' + detail + '</p></div>';
 }
+function showSundayEmpty(title, detail) {
+  document.getElementById('sundayPodium').innerHTML = '';
+  document.getElementById('sundayUpset').innerHTML = '';
+  document.getElementById('sundayWeeks').innerHTML =
+    '<div class="empty-state"><div class="icon">&#128197;</div><h3>' + title + '</h3><p>' + detail + '</p></div>';
+  document.getElementById('sundayFoot').innerHTML = '';
+}
+
+// ---------- theme toggle + tabs (wired up front, independent of data) ----------
+function setupChrome() {
+  const root = document.documentElement;
+  const themeBtn = document.getElementById('themeToggle');
+  try {
+    const saved = localStorage.getItem('ssjakk-theme');
+    if (saved) root.setAttribute('data-theme', saved);
+  } catch(e) {}
+  themeBtn.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('ssjakk-theme', next); } catch(e) {}
+  });
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      ensureGraph(btn.dataset.tab);
+    });
+  });
+}
+
+// Graphs need their pane visible (non-zero width/height) to lay out correctly,
+// so each is built lazily the first time its tab is actually shown.
+function ensureGraph(tab) {
+  if (graphsBuilt[tab] || activeTab() !== tab) return;
+  if (tab === 'sunday') {
+    if (!SUNDAY || !SUNDAY.players || !SUNDAY.players.length) return;
+    document.getElementById('sundayGraphCard').style.display = '';
+    graphApi.sunday = buildGraph('sunday', SUNDAY.players, SUNDAY.edges);
+    graphsBuilt.sunday = true;
+  }
+  if (tab === 'rivalry') {
+    if (!DATA) return;
+    graphApi.rivalry = buildGraph('rivalry', DATA.players, DATA.edges);
+    graphsBuilt.rivalry = true;
+  }
+}
 
 async function boot() {
+  setupChrome();
+
+  // ---------- Sunday Standings (independent of d3 / rivalry data) ----------
+  try {
+    const res = await fetch('./sunday.json', {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching sunday.json');
+    SUNDAY = await res.json();
+    renderSunday(SUNDAY);
+    ensureGraph('sunday');
+  } catch (e) {
+    console.error(e);
+    showSundayEmpty('No arenas recorded yet',
+      'This tab will show the podium and results from your weekly Sunday Arena once sunday.json is generated. Run backfill_sunday.py after a session and push the result.');
+  }
+
+  // ---------- Rivalry (needs d3 + data.json) ----------
   if (typeof d3 === 'undefined') {
     showError('Chart library did not load', 'd3.js from cdnjs.cloudflare.com was blocked or failed to load (ad blocker / network filter?). Try disabling extensions or a different network.');
     return;
   }
-  let data;
   try {
     const res = await fetch('./data.json', {cache: 'no-store'});
     if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching data.json');
-    data = await res.json();
+    DATA = await res.json();
   } catch (e) {
     console.error(e);
     showError('Could not load data.json', String(e.message || e));
     return;
   }
-  DATA = data;
   try {
-    init();
+    document.getElementById('genTime').textContent = new Date(DATA.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
+
+    const ranked = [...DATA.players].sort((a,b) => b.wins - a.wins).slice(0,3);
+    const podiumEl = document.getElementById('rivalryPodium');
+    const rankClass = ['rank-1','rank-2','rank-3'];
+    const rankIcon = ['&#129351;','&#129352;','&#129353;'];
+    ranked.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'podium-card ' + rankClass[i];
+      card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
+        ${avatarOrFallback(p, 54)}
+        <div>
+          <div class="podium-name">${p.displayName}</div>
+          <div class="podium-metric"><span class="chip win">${p.wins}W</span> &middot; <span class="chip loss">${p.losses}L</span> &middot; <span class="chip draw">${p.draws}D</span></div>
+        </div>`;
+      card.addEventListener('click', () => graphApi.rivalry && graphApi.rivalry.selectNode(p.id));
+      podiumEl.appendChild(card);
+    });
+
+    ensureGraph('rivalry');
   } catch (e) {
     console.error(e);
     showError('Error rendering the page', String(e.message || e));
   }
 }
 
-function init() {
+// ---------- Sunday Standings rendering ----------
+function renderSunday(sunday) {
+  const avatarById = {};
+  (sunday.players || []).forEach(p => avatarById[p.id] = p.avatar);
 
-document.getElementById('genTime').textContent = new Date(DATA.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
-
-// ---------- theme toggle ----------
-const root = document.documentElement;
-const themeBtn = document.getElementById('themeToggle');
-function applyStoredTheme() {
-  try {
-    const saved = localStorage.getItem('ssjakk-theme');
-    if (saved) root.setAttribute('data-theme', saved);
-  } catch(e) {}
-}
-applyStoredTheme();
-themeBtn.addEventListener('click', () => {
-  const current = root.getAttribute('data-theme') ||
-    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const next = current === 'dark' ? 'light' : 'dark';
-  root.setAttribute('data-theme', next);
-  try { localStorage.setItem('ssjakk-theme', next); } catch(e) {}
-});
-
-// ---------- tabs ----------
-document.querySelectorAll('.tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  // podium: cumulative Sunday leaderboard (most 1st-place finishes, then podiums, then avg place)
+  const podiumEl = document.getElementById('sundayPodium');
+  const top3 = (sunday.cumulative || []).slice(0, 3);
+  const rankClass = ['rank-1','rank-2','rank-3'];
+  const rankIcon = ['&#129351;','&#129352;','&#129353;'];
+  top3.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'podium-card ' + rankClass[i];
+    card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
+      ${avatarOrFallback({...p, avatar: avatarById[p.person]}, 54)}
+      <div>
+        <div class="podium-name">${p.displayName}</div>
+        <div class="podium-metric"><b>${p.firsts}</b> firsts &middot; ${p.podiums} podiums &middot; avg #${p.avgPlace}</div>
+      </div>`;
+    card.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(p.person));
+    podiumEl.appendChild(card);
   });
-});
 
-// ---------- data prep ----------
-const nodesById = {};
-DATA.players.forEach(p => nodesById[p.id] = p);
-
-function initials(name) {
-  return name.split(/[\s_]+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
-}
-
-function avatarOrFallback(p, size) {
-  if (p.avatar) return `<img class="avatar" src="${p.avatar}" alt="" width="${size}" height="${size}">`;
-  return `<div class="avatar avatar-fallback" style="width:${size}px;height:${size}px">${initials(p.displayName)}</div>`;
-}
-
-// ---------- podium (ranked by total lifetime wins vs clubmates) ----------
-const ranked = [...DATA.players].sort((a,b) => b.wins - a.wins).slice(0,3);
-const podiumEl = document.getElementById('rivalryPodium');
-const rankClass = ['rank-1','rank-2','rank-3'];
-const rankIcon = ['&#129351;','&#129352;','&#129353;'];
-ranked.forEach((p, i) => {
-  const card = document.createElement('div');
-  card.className = 'podium-card ' + rankClass[i];
-  card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
-    ${avatarOrFallback(p, 54)}
-    <div>
-      <div class="podium-name">${p.displayName}</div>
-      <div class="podium-metric"><b>${p.wins}</b> wins &middot; ${p.losses}L &middot; ${p.draws}D</div>
+  // biggest upset callout
+  const u = sunday.biggestUpsetOverall;
+  const upsetEl = document.getElementById('sundayUpset');
+  if (u) {
+    upsetEl.innerHTML = `<div class="upset-card">
+      <div class="bolt">&#9889;</div>
+      <div class="body">
+        <div class="line"><span class="chip win">${u.winnerDisplayName}</span> <span class="r">(${u.winnerRating})</span> upset <span class="chip loss">${u.loserDisplayName}</span> <span class="r">(${u.loserRating})</span></div>
+        <div class="meta">Biggest rating upset &middot; ${u.gap}-point gap &middot; ${formatDate(u.week)}</div>
+      </div>
+      <a href="${u.gameUrl}" target="_blank" rel="noopener noreferrer">Watch game &rarr;</a>
     </div>`;
-  card.addEventListener('click', () => selectNode(p.id));
-  podiumEl.appendChild(card);
-});
-
-// ---------- graph ----------
-const svg = d3.select('#viz');
-const pane = document.getElementById('graphPane');
-let width = pane.clientWidth, height = pane.clientHeight;
-
-const defs = svg.append('defs');
-const g = svg.append('g');
-
-const zoom = d3.zoom().scaleExtent([0.4, 4]).on('zoom', ev => g.attr('transform', ev.transform));
-svg.call(zoom);
-document.getElementById('zoomIn').onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1.4);
-document.getElementById('zoomOut').onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1/1.4);
-document.getElementById('zoomReset').onclick = () => svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
-
-const nodes = DATA.players.map(p => ({...p}));
-const links = DATA.edges.map(e => ({...e, source: e.p1, target: e.p2}));
-
-const sizeScale = d3.scaleSqrt().domain(d3.extent(nodes, d => d.totalGames)).range([20, 38]);
-const widthScale = d3.scaleSqrt().domain([1, d3.max(links, d => d.total)]).range([1, 8]);
-const distScale = d3.scaleLinear().domain(d3.extent(links, d => d.total)).range([210, 90]);
-
-nodes.forEach(d => {
-  if (!d.avatar) return;
-  defs.append('clipPath').attr('id', 'clip-' + d.id)
-    .append('circle').attr('r', sizeScale(d.totalGames));
-});
-
-const simulation = d3.forceSimulation(nodes)
-  .force('link', d3.forceLink(links).id(d => d.id)
-    .distance(d => distScale(d.total))
-    .strength(d => 0.15 + 0.55 * (d.total / d3.max(links, l => l.total))))
-  .force('charge', d3.forceManyBody().strength(-460))
-  .force('center', d3.forceCenter(width/2, height/2))
-  .force('collide', d3.forceCollide().radius(d => sizeScale(d.totalGames) + 16));
-
-const link = g.append('g').selectAll('line')
-  .data(links).join('line').attr('class', 'link').attr('stroke-width', d => widthScale(d.total));
-
-const node = g.append('g').selectAll('g')
-  .data(nodes).join('g').attr('class', 'node')
-  .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended));
-
-node.each(function(d) {
-  const sel = d3.select(this);
-  const r = sizeScale(d.totalGames);
-  sel.append('circle').attr('class', 'ring').attr('r', r + 2);
-  if (d.avatar) {
-    sel.append('image')
-      .attr('href', d.avatar)
-      .attr('width', r*2).attr('height', r*2)
-      .attr('x', -r).attr('y', -r)
-      .attr('clip-path', `url(#clip-${d.id})`);
-  } else {
-    sel.append('circle').attr('r', r).attr('fill', 'var(--surface-2)');
-    sel.append('text').attr('dy', 4).attr('text-anchor','middle').style('font-size', (r*0.62)+'px').text(initials(d.displayName));
   }
-});
-node.append('text')
-  .attr('dy', d => sizeScale(d.totalGames) + 16)
-  .attr('text-anchor', 'middle')
-  .text(d => d.displayName);
 
-const tooltip = document.getElementById('tooltip');
-function positionTooltip(ev) {
-  const rect = pane.getBoundingClientRect();
-  tooltip.style.opacity = 1;
-  tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
-  tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
-}
-
-link.on('mousemove', (ev, d) => {
-    const leader = d.p1Wins === d.p2Wins ? null : (d.p1Wins > d.p2Wins ? d.source.id : d.target.id);
-    const a = nodesById[d.source.id].displayName, b = nodesById[d.target.id].displayName;
-    tooltip.innerHTML = leader
-      ? `<b>${nodesById[leader].displayName}</b> leads<br>${a} ${d.p1Wins} &ndash; ${d.p2Wins} ${b}${d.draws ? `, ${d.draws} draws` : ''}<br><span class="muted">${d.total} games</span>`
-      : `<b>Dead even</b><br>${a} ${d.p1Wins} &ndash; ${d.p2Wins} ${b}${d.draws ? `, ${d.draws} draws` : ''}<br><span class="muted">${d.total} games</span>`;
-    positionTooltip(ev);
-  }).on('mouseleave', () => tooltip.style.opacity = 0);
-
-node.on('mousemove', (ev, d) => {
-    tooltip.innerHTML = `<b>${d.displayName}</b><br>${d.wins}W &ndash; ${d.losses}L &ndash; ${d.draws}D vs clubmates<br><span class="muted">${d.accounts.join(' / ')}</span>`;
-    positionTooltip(ev);
-    highlight(d.id);
-  }).on('mouseleave', () => { tooltip.style.opacity = 0; if (!selectedId) clearHighlight(); })
-  .on('click', (ev, d) => { ev.stopPropagation(); selectNode(d.id); });
-
-svg.on('click', () => selectNode(null));
-
-simulation.on('tick', () => {
-  link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-  node.attr('transform', d => `translate(${d.x},${d.y})`);
-});
-
-function dragstarted(ev, d) { if (!ev.active) simulation.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; }
-function dragged(ev, d) { d.fx = ev.x; d.fy = ev.y; }
-function dragended(ev, d) { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
-
-function neighborsOf(id) {
-  const set = new Set([id]);
-  links.forEach(l => { if (l.source.id === id) set.add(l.target.id); if (l.target.id === id) set.add(l.source.id); });
-  return set;
-}
-function highlight(id) {
-  const nb = neighborsOf(id);
-  node.classed('dim', d => !nb.has(d.id)).classed('hi', d => d.id === id);
-  link.classed('dim', d => d.source.id !== id && d.target.id !== id).classed('hi', d => d.source.id === id || d.target.id === id);
-}
-function clearHighlight() { node.classed('dim', false).classed('hi', false); link.classed('dim', false).classed('hi', false); }
-
-let selectedId = null;
-function selectNode(id) {
-  selectedId = id;
-  node.classed('selected', d => d.id === id);
-  if (id) highlight(id); else clearHighlight();
-  renderDetail(id);
-}
-
-function renderDetail(id) {
-  const sheet = document.getElementById('detailSheet');
-  if (!id) { sheet.classList.remove('open'); sheet.innerHTML = ''; return; }
-  const p = nodesById[id];
-  const opp = links.filter(l => l.source.id === id || l.target.id === id).map(l => {
-    const isP1 = l.source.id === id;
-    const oppId = isP1 ? l.target.id : l.source.id;
-    const wins = isP1 ? l.p1Wins : l.p2Wins;
-    const losses = isP1 ? l.p2Wins : l.p1Wins;
-    return {oppId, wins, losses, draws: l.draws, total: l.total};
-  }).sort((a,b) => b.total - a.total);
-
-  let html = `<div class="detail-top">
-      ${avatarOrFallback(p, 40)}
-      <div><div class="detail-name">${p.displayName}</div><div class="detail-sub">${p.accounts.join(' / ')}</div></div>
-      <button class="detail-close" id="detailClose">&times;</button>
+  // weekly results, most recent first
+  const weeksEl = document.getElementById('sundayWeeks');
+  const weeksDesc = [...(sunday.weeks || [])].reverse();
+  weeksEl.innerHTML = weeksDesc.map(w => `
+    <div class="week-card">
+      <div class="week-head"><span class="name">${w.name}</span><span class="date">${formatDate(w.date)} &middot; ${w.playerCount} players</span></div>
+      <div class="week-rows">
+        ${w.standings.map(s => `<div class="week-row place-${s.place}"><span class="place">${s.place}</span><span class="pname">${s.displayName}</span><span class="pts">${s.points} pts</span></div>`).join('')}
+      </div>
     </div>
-    <div class="opp-grid">`;
-  opp.forEach(o => {
-    const rate = (o.wins + o.draws*0.5) / o.total * 100;
-    const on = nodesById[o.oppId];
-    html += `<div class="opp-row">
-      <div class="name">${on.displayName}</div>
-      <div class="score">${o.wins}-${o.losses}-${o.draws}</div>
-      <div class="bar-wrap"><div class="bar-fill" style="width:${rate}%"></div></div>
-    </div>`;
-  });
-  html += `</div>`;
-  sheet.innerHTML = html;
-  sheet.classList.add('open');
-  document.getElementById('detailClose').addEventListener('click', () => selectNode(null));
+  `).join('');
+
+  document.getElementById('sundayFoot').innerHTML =
+    `${(sunday.weeks || []).length} arenas tracked &middot; generated ${new Date(sunday.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
 }
 
-window.addEventListener('resize', () => {
-  width = pane.clientWidth; height = pane.clientHeight;
-  simulation.force('center', d3.forceCenter(width/2, height/2));
-  simulation.alpha(0.3).restart();
-});
+// ---------- shared force-directed graph, used by both tabs ----------
+function buildGraph(key, players, edgesRaw) {
+  const idSuffix = key === 'rivalry' ? '' : 'Sunday';
+  const svg = d3.select('#viz' + idSuffix);
+  const pane = document.getElementById('graphPane' + idSuffix);
+  const tooltip = document.getElementById('tooltip' + idSuffix);
+  let width = pane.clientWidth, height = pane.clientHeight;
 
-} // end init()
+  const defs = svg.append('defs');
+  const g = svg.append('g');
+
+  const zoom = d3.zoom().scaleExtent([0.4, 4]).on('zoom', ev => g.attr('transform', ev.transform));
+  svg.call(zoom);
+  document.getElementById('zoomIn' + idSuffix).onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1.4);
+  document.getElementById('zoomOut' + idSuffix).onclick = () => svg.transition().duration(200).call(zoom.scaleBy, 1/1.4);
+  document.getElementById('zoomReset' + idSuffix).onclick = () => svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+
+  const nodesById = {};
+  players.forEach(p => nodesById[p.id] = p);
+
+  const nodes = players.map(p => ({...p}));
+  const links = edgesRaw.map(e => ({...e, source: e.p1, target: e.p2}));
+
+  const sizeScale = d3.scaleSqrt().domain(d3.extent(nodes, d => d.totalGames)).range([20, 38]);
+  const widthScale = d3.scaleSqrt().domain([1, d3.max(links, d => d.total)]).range([1, 8]);
+  const distScale = d3.scaleLinear().domain(d3.extent(links, d => d.total)).range([210, 90]);
+
+  nodes.forEach(d => {
+    if (!d.avatar) return;
+    defs.append('clipPath').attr('id', 'clip' + idSuffix + '-' + d.id)
+      .append('circle').attr('r', sizeScale(d.totalGames));
+  });
+
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id)
+      .distance(d => distScale(d.total))
+      .strength(d => 0.15 + 0.55 * (d.total / d3.max(links, l => l.total))))
+    .force('charge', d3.forceManyBody().strength(-460))
+    .force('center', d3.forceCenter(width/2, height/2))
+    .force('collide', d3.forceCollide().radius(d => sizeScale(d.totalGames) + 16));
+
+  const link = g.append('g').selectAll('line')
+    .data(links).join('line').attr('class', 'link').attr('stroke-width', d => widthScale(d.total));
+
+  const node = g.append('g').selectAll('g')
+    .data(nodes).join('g').attr('class', 'node')
+    .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended));
+
+  node.each(function(d) {
+    const sel = d3.select(this);
+    const r = sizeScale(d.totalGames);
+    sel.append('circle').attr('class', 'ring').attr('r', r + 2);
+    if (d.avatar) {
+      sel.append('image')
+        .attr('href', d.avatar)
+        .attr('width', r*2).attr('height', r*2)
+        .attr('x', -r).attr('y', -r)
+        .attr('clip-path', `url(#clip${idSuffix}-${d.id})`);
+    } else {
+      sel.append('circle').attr('r', r).attr('fill', 'var(--surface-2)');
+      sel.append('text').attr('dy', 4).attr('text-anchor','middle').style('font-size', (r*0.62)+'px').text(initials(d.displayName));
+    }
+  });
+  node.append('text')
+    .attr('dy', d => sizeScale(d.totalGames) + 16)
+    .attr('text-anchor', 'middle')
+    .text(d => d.displayName);
+
+  function positionTooltip(ev) {
+    const rect = pane.getBoundingClientRect();
+    tooltip.style.opacity = 1;
+    tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
+    tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
+  }
+
+  link.on('mousemove', (ev, d) => {
+      const leader = d.p1Wins === d.p2Wins ? null : (d.p1Wins > d.p2Wins ? d.source.id : d.target.id);
+      const a = nodesById[d.source.id].displayName, b = nodesById[d.target.id].displayName;
+      tooltip.innerHTML = leader
+        ? `<b>${nodesById[leader].displayName}</b> leads<br>${a} ${d.p1Wins} &ndash; ${d.p2Wins} ${b}${d.draws ? `, ${d.draws} draws` : ''}<br><span class="muted">${d.total} games</span>`
+        : `<b>Dead even</b><br>${a} ${d.p1Wins} &ndash; ${d.p2Wins} ${b}${d.draws ? `, ${d.draws} draws` : ''}<br><span class="muted">${d.total} games</span>`;
+      positionTooltip(ev);
+    }).on('mouseleave', () => tooltip.style.opacity = 0);
+
+  node.on('mousemove', (ev, d) => {
+      tooltip.innerHTML = `<b>${d.displayName}</b><br><span class="chip win">${d.wins}W</span> &ndash; <span class="chip loss">${d.losses}L</span> &ndash; <span class="chip draw">${d.draws}D</span><br><span class="muted">${(d.accounts || [d.id]).join(' / ')}</span>`;
+      positionTooltip(ev);
+      highlight(d.id);
+    }).on('mouseleave', () => { tooltip.style.opacity = 0; if (!selectedId) clearHighlight(); })
+    .on('click', (ev, d) => { ev.stopPropagation(); selectNode(d.id); });
+
+  svg.on('click', () => selectNode(null));
+
+  simulation.on('tick', () => {
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  function dragstarted(ev, d) { if (!ev.active) simulation.alphaTarget(0.25).restart(); d.fx = d.x; d.fy = d.y; }
+  function dragged(ev, d) { d.fx = ev.x; d.fy = ev.y; }
+  function dragended(ev, d) { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+
+  function neighborsOf(id) {
+    const set = new Set([id]);
+    links.forEach(l => { if (l.source.id === id) set.add(l.target.id); if (l.target.id === id) set.add(l.source.id); });
+    return set;
+  }
+  function highlight(id) {
+    const nb = neighborsOf(id);
+    node.classed('dim', d => !nb.has(d.id)).classed('hi', d => d.id === id);
+    link.classed('dim', d => d.source.id !== id && d.target.id !== id).classed('hi', d => d.source.id === id || d.target.id === id);
+  }
+  function clearHighlight() { node.classed('dim', false).classed('hi', false); link.classed('dim', false).classed('hi', false); }
+
+  let selectedId = null;
+  function selectNode(id) {
+    selectedId = id;
+    node.classed('selected', d => d.id === id);
+    if (id) highlight(id); else clearHighlight();
+    renderDetail(id);
+  }
+
+  function renderDetail(id) {
+    const sheet = document.getElementById('detailSheet' + idSuffix);
+    if (!id) { sheet.classList.remove('open'); sheet.innerHTML = ''; return; }
+    const p = nodesById[id];
+    const opp = links.filter(l => l.source.id === id || l.target.id === id).map(l => {
+      const isP1 = l.source.id === id;
+      const oppId = isP1 ? l.target.id : l.source.id;
+      const wins = isP1 ? l.p1Wins : l.p2Wins;
+      const losses = isP1 ? l.p2Wins : l.p1Wins;
+      return {oppId, wins, losses, draws: l.draws, total: l.total};
+    }).sort((a,b) => b.total - a.total);
+
+    let html = `<div class="detail-top">
+        ${avatarOrFallback(p, 40)}
+        <div><div class="detail-name">${p.displayName}</div><div class="detail-sub">${(p.accounts || [p.id]).join(' / ')}</div></div>
+        <button class="detail-close" id="detailClose${idSuffix}">&times;</button>
+      </div>
+      <div class="opp-grid">`;
+    opp.forEach(o => {
+      const rate = (o.wins + o.draws*0.5) / o.total * 100;
+      const on = nodesById[o.oppId];
+      html += `<div class="opp-row">
+        <div class="name">${on.displayName}</div>
+        <div class="score"><span class="chip win">${o.wins}</span>-<span class="chip loss">${o.losses}</span>-<span class="chip draw">${o.draws}</span></div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${rate}%"></div></div>
+      </div>`;
+    });
+    html += `</div>`;
+    sheet.innerHTML = html;
+    sheet.classList.add('open');
+    document.getElementById('detailClose' + idSuffix).addEventListener('click', () => selectNode(null));
+  }
+
+  window.addEventListener('resize', () => {
+    width = pane.clientWidth; height = pane.clientHeight;
+    simulation.force('center', d3.forceCenter(width/2, height/2));
+    simulation.alpha(0.3).restart();
+  });
+
+  return { selectNode };
+}
 
 boot();
 </script>
