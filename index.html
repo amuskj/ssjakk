@@ -364,15 +364,32 @@
 <script>
 let DATA = null;
 
+function showError(title, detail) {
+  document.getElementById('panel-rivalry').innerHTML =
+    '<div class="empty-state"><div class="icon">&#9888;</div><h3>' + title + '</h3><p>' + detail + '</p></div>';
+}
+
 async function boot() {
+  if (typeof d3 === 'undefined') {
+    showError('Chart library did not load', 'd3.js from cdnjs.cloudflare.com was blocked or failed to load (ad blocker / network filter?). Try disabling extensions or a different network.');
+    return;
+  }
+  let data;
   try {
     const res = await fetch('./data.json', {cache: 'no-store'});
-    DATA = await res.json();
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching data.json');
+    data = await res.json();
+  } catch (e) {
+    console.error(e);
+    showError('Could not load data.json', String(e.message || e));
+    return;
+  }
+  DATA = data;
+  try {
     init();
   } catch (e) {
-    document.getElementById('panel-rivalry').innerHTML =
-      '<div class="empty-state"><div class="icon">&#9888;</div><h3>Could not load data.json</h3><p>Make sure data.json sits next to index.html.</p></div>';
     console.error(e);
+    showError('Error rendering the page', String(e.message || e));
   }
 }
 
