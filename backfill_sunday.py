@@ -190,10 +190,13 @@ def process_tournament(tid):
             }
 
     finish_time = meta.get("finish_time")
+    start_time = meta.get("start_time")
     date = (
         datetime.fromtimestamp(finish_time, tz=timezone.utc).strftime("%Y-%m-%d")
         if finish_time else None
     )
+    settings = meta.get("settings") or {}
+    duration_sec = (finish_time - start_time) if (finish_time and start_time) else None
 
     week = {
         "id": tid,
@@ -202,6 +205,9 @@ def process_tournament(tid):
         "playerCount": len(standings),
         "standings": standings,
         "upset": best_upset,
+        "timeControl": settings.get("time_control"),
+        "timeClass": settings.get("time_class"),
+        "durationSec": duration_sec,
     }
     return week, round_data.get("games", [])
 

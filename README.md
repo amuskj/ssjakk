@@ -11,7 +11,10 @@ load time.
 - `backfill_sunday.py` regenerates `sunday.json` — results from the weekly
   "Hopen Arena" tournaments (cumulative podium/leaderboard), any one-off
   special events (their own section, see below), plus an arena-only
-  head-to-head graph spanning both.
+  head-to-head graph spanning both. Each week/event also carries its
+  Chess.com time control, time class, and total scheduled duration
+  (`timeControl`, `timeClass`, `durationSec` — from the tournament's own
+  `start_time`/`finish_time`), shown on its card on the site.
 - `build_games.py` regenerates `games.json` — every individual game from
   every tournament, regular or special (ratings, clock times, opening, move
   count, and accuracy where it exists), which powers the Trends tab: the

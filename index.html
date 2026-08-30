@@ -325,7 +325,7 @@
     padding: 18px 18px 20px;
     box-shadow: var(--shadow);
   }
-  .special-event-card .week-head { margin-bottom: 16px; }
+  .special-event-card .week-head { margin-bottom: 6px; }
   .podium.compact { margin-bottom: 16px; }
 
   /* ---------- weekly results ---------- */
@@ -340,7 +340,7 @@
   }
   .week-card:hover { box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
   .week-card[data-week-id] { cursor: pointer; }
-  .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
   .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
   .week-head .week-toggle { font-size: 10px; color: var(--ink-mute); transition: transform 0.15s ease; }
   .week-card.open .week-toggle { transform: rotate(180deg); }
@@ -348,6 +348,8 @@
     font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap;
     background: var(--surface-2); padding: 3px 10px; border-radius: 999px;
   }
+  .week-meta { font-size: 11px; color: var(--ink-mute); margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .week-meta span { white-space: nowrap; }
   .week-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 6px; }
   .week-games-panel { flex-direction: column; gap: 6px; }
   .week-games-panel:not([hidden]) { display: flex; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ring); }
@@ -633,7 +635,10 @@
   <div class="panel" id="panel-rivalry">
     <div class="podium" id="rivalryPodium"></div>
 
-    <div class="graph-card">
+    <div class="section-label">All players &middot; lifetime record</div>
+    <div id="rivalryFullStandings" class="full-standings"></div>
+
+    <div class="graph-card" id="rivalryGraphCard">
       <div class="graph-head">
         <h2>Head-to-head, lifetime</h2>
         <span class="hint">drag &middot; scroll to zoom &middot; click a player</span>
@@ -723,9 +728,41 @@ function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso + 'T12:00:00Z').toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
 }
+// Chess.com time controls are "<base seconds>+<increment seconds>" — the
+// base converts to whole minutes for blitz/rapid, so "300+5" reads as the
+// familiar "5+5" shorthand.
+function formatTimeControl(tc) {
+  if (!tc) return null;
+  const [base, inc] = tc.split('+');
+  const mins = Math.round(Number(base) / 60);
+  return inc ? `${mins}+${inc}` : `${mins} min`;
+}
+function formatDuration(sec) {
+  if (sec == null) return null;
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
+}
+function tournamentMetaHtml(w) {
+  const bits = [];
+  if (w.timeControl) bits.push(`&#9201; ${formatTimeControl(w.timeControl)}${w.timeClass ? ' ' + w.timeClass : ''}`);
+  if (w.durationSec != null) bits.push(`&#8987; ${formatDuration(w.durationSec)}`);
+  return bits.length ? `<div class="week-meta">${bits.map(b => `<span>${b}</span>`).join('')}</div>` : '';
+}
 function activeTab() {
   const el = document.querySelector('.tab.active');
   return el ? el.dataset.tab : null;
+}
+// Selecting a player from a leaderboard row (rather than clicking their
+// node directly) opens the same head-to-head detail sheet the graph uses —
+// then scrolls it into view, since the leaderboard sits well above the
+// graph card on the page.
+function selectAndReveal(api, id, graphCardId) {
+  if (!api) return;
+  api.selectNode(id);
+  const card = document.getElementById(graphCardId);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function showError(title, detail) {
@@ -865,23 +902,7 @@ async function boot() {
   try {
     document.getElementById('genTime').textContent = new Date(DATA.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
 
-    const ranked = [...DATA.players].sort((a,b) => b.wins - a.wins).slice(0,3);
-    const podiumEl = document.getElementById('rivalryPodium');
-    const rankClass = ['rank-1','rank-2','rank-3'];
-    const rankIcon = ['&#129351;','&#129352;','&#129353;'];
-    ranked.forEach((p, i) => {
-      const card = document.createElement('div');
-      card.className = 'podium-card ' + rankClass[i];
-      card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
-        ${avatarOrFallback(p, i === 0 ? 72 : 54)}
-        <div>
-          <div class="podium-name">${p.displayName}</div>
-          <div class="podium-metric"><span class="chip win">${p.wins}W</span> &middot; <span class="chip loss">${p.losses}L</span> &middot; <span class="chip draw">${p.draws}D</span></div>
-        </div>`;
-      card.addEventListener('click', () => graphApi.rivalry && graphApi.rivalry.selectNode(p.id));
-      podiumEl.appendChild(card);
-    });
-
+    renderRivalryLeaderboard(DATA.players);
     ensureGraph('rivalry');
   } catch (e) {
     console.error(e);
@@ -933,7 +954,7 @@ function renderSundayLeaderboard(sunday, avatarById, mode) {
         <div class="podium-name">${p.displayName}</div>
         <div class="podium-metric">${sundayMetricHtml(p, mode, true)}</div>
       </div>`;
-    card.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(p.person));
+    card.addEventListener('click', () => selectAndReveal(graphApi.sunday, p.person, 'sundayGraphCard'));
     podiumEl.appendChild(card);
   });
 
@@ -947,7 +968,49 @@ function renderSundayLeaderboard(sunday, avatarById, mode) {
     </div>
   `).join('');
   fsEl.querySelectorAll('.fs-row').forEach(row => {
-    row.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(row.dataset.person));
+    row.addEventListener('click', () => selectAndReveal(graphApi.sunday, row.dataset.person, 'sundayGraphCard'));
+  });
+}
+
+// ---------- Rivalry leaderboard (lifetime, all players) ----------
+function rivalryMetricHtml(p, big) {
+  const total = p.wins + p.losses + p.draws;
+  return big
+    ? `<span class="chip win">${p.wins}W</span> &middot; <span class="chip loss">${p.losses}L</span> &middot; <span class="chip draw">${p.draws}D</span>`
+    : `${p.wins}W-${p.losses}L-${p.draws}D &middot; ${total} games`;
+}
+function renderRivalryLeaderboard(players) {
+  const ranked = [...players].sort((a, b) => b.wins - a.wins);
+  const top3 = ranked.slice(0, 3);
+
+  const podiumEl = document.getElementById('rivalryPodium');
+  podiumEl.innerHTML = '';
+  const rankClass = ['rank-1','rank-2','rank-3'];
+  const rankIcon = ['&#129351;','&#129352;','&#129353;'];
+  top3.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'podium-card ' + rankClass[i];
+    card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
+      ${avatarOrFallback(p, i === 0 ? 72 : 54)}
+      <div>
+        <div class="podium-name">${p.displayName}</div>
+        <div class="podium-metric">${rivalryMetricHtml(p, true)}</div>
+      </div>`;
+    card.addEventListener('click', () => selectAndReveal(graphApi.rivalry, p.id, 'rivalryGraphCard'));
+    podiumEl.appendChild(card);
+  });
+
+  const fsEl = document.getElementById('rivalryFullStandings');
+  fsEl.innerHTML = ranked.map((p, i) => `
+    <div class="fs-row ${i < 3 ? 'top3' : ''}" data-person="${p.id}">
+      <span class="fs-rank">${i + 1}</span>
+      ${avatarOrFallback(p, 28)}
+      <span class="fs-name">${p.displayName}</span>
+      <span class="fs-metric">${rivalryMetricHtml(p, false)}</span>
+    </div>
+  `).join('');
+  fsEl.querySelectorAll('.fs-row').forEach(row => {
+    row.addEventListener('click', () => selectAndReveal(graphApi.rivalry, row.dataset.person, 'rivalryGraphCard'));
   });
 }
 
@@ -1001,6 +1064,7 @@ function renderSunday(sunday) {
         <span class="name">${w.seriesLabel || w.name} <span class="week-toggle">&#9662;</span></span>
         <span class="date">${formatDate(w.date)} &middot; ${w.playerCount} players</span>
       </div>
+      ${tournamentMetaHtml(w)}
       <div class="week-rows">
         ${w.standings.map(s => `<div class="week-row place-${s.place}"><span class="place">${s.place}</span><span class="pname">${s.displayName}</span><span class="pts">${s.points} pts</span></div>`).join('')}
       </div>
@@ -1055,6 +1119,7 @@ function renderSpecialEvents(sunday, avatarById) {
     return `
       <div class="special-event-card">
         <div class="week-head"><span class="name">${ev.name}</span><span class="date">${ev.seriesLabel || ''} &middot; ${formatDate(ev.date)} &middot; ${ev.playerCount} players</span></div>
+        ${tournamentMetaHtml(ev)}
         <div class="podium compact">${podiumHtml}</div>
         <div class="week-rows">${rowsHtml}</div>
       </div>`;
