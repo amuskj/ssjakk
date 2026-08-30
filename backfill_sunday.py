@@ -124,15 +124,21 @@ def build_arena_graph(all_games):
         players[rec["p2"]]["losses"] += rec["p1Wins"]
         players[rec["p2"]]["draws"] += rec["draws"]
 
-    # Reuse avatars already fetched into data.json by refresh.py, if present.
-    avatar_by_person = {}
+    # Reuse avatars + profile facts (join date, league, current ratings)
+    # already fetched into data.json by refresh.py, if present, rather than
+    # hitting the Chess.com profile API a second time here.
+    profile_by_person = {}
     try:
         with open("data.json") as f:
-            avatar_by_person = {p["id"]: p.get("avatar") for p in json.load(f).get("players", [])}
+            profile_by_person = {p["id"]: p for p in json.load(f).get("players", [])}
     except (FileNotFoundError, json.JSONDecodeError):
         pass
     for p in players.values():
-        p["avatar"] = avatar_by_person.get(p["id"])
+        src = profile_by_person.get(p["id"], {})
+        p["avatar"] = src.get("avatar")
+        p["joined"] = src.get("joined")
+        p["league"] = src.get("league")
+        p["ratings"] = src.get("ratings")
 
     nemesis_map, _ = compute_nemesis(person_ids, edges)
     for p in players.values():

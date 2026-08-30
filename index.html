@@ -448,18 +448,32 @@
   }
   .zoom-controls button:hover { border-color: var(--ring-strong); color: var(--ink); }
 
-  /* ---------- detail sheet ---------- */
+  /* ---------- detail sheet: floats over the graph so selecting a player
+     from a leaderboard (far above the graph on the page) lands the eye
+     right on their card instead of an empty force-graph ---------- */
   .detail-sheet {
-    border-top: 1px solid var(--ring);
-    padding: 16px 18px 18px;
+    position: absolute;
+    top: 14px; left: 14px;
+    width: min(340px, calc(100% - 28px));
+    max-height: calc(100% - 28px);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--ring-strong);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 16px 16px 18px;
     display: none;
+    z-index: 15;
   }
-  .detail-sheet.open { display: block; }
+  .detail-sheet.open { display: block; animation: detailPop 0.2s ease; }
+  @keyframes detailPop { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   .detail-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .detail-top img { width: 40px; height: 40px; border-radius: 999px; object-fit: cover; border: 1px solid var(--ring); }
   .detail-name { font-family: var(--disp); font-weight: 700; font-size: 15px; }
   .detail-sub { font-size: 11.5px; color: var(--ink-mute); font-family: monospace; }
   .detail-close { margin-left: auto; border: none; background: none; color: var(--ink-mute); cursor: pointer; font-size: 18px; }
+  .profile-facts { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 11.5px; color: var(--ink-dim); margin: -4px 0 12px; }
+  .profile-facts b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .opp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 8px; }
   .opp-row {
     display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;
@@ -624,8 +638,8 @@
           <button id="zoomOutSunday">&minus;</button>
           <button id="zoomResetSunday">&#8634;</button>
         </div>
+        <div class="detail-sheet" id="detailSheetSunday"></div>
       </div>
-      <div class="detail-sheet" id="detailSheetSunday"></div>
     </div>
 
     <div class="foot" id="sundayFoot"></div>
@@ -651,8 +665,8 @@
           <button id="zoomOut">&minus;</button>
           <button id="zoomReset">&#8634;</button>
         </div>
+        <div class="detail-sheet" id="detailSheet"></div>
       </div>
-      <div class="detail-sheet" id="detailSheet"></div>
     </div>
 
     <div class="foot">Every game two SSJakk members have played against each other on Chess.com, lifetime &middot; generated <span id="genTime"></span> &middot; not a live feed</div>
@@ -762,7 +776,25 @@ function selectAndReveal(api, id, graphCardId) {
   if (!api) return;
   api.selectNode(id);
   const card = document.getElementById(graphCardId);
-  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+// "Current rating" / "member since" / league facts, sourced from each
+// player's public Chess.com profile — same across the Sunday and Rivalry
+// detail sheets since both read from the same per-person record.
+function profileFactsHtml(p) {
+  const bits = [];
+  if (p.ratings) {
+    const r = [];
+    if (p.ratings.blitz != null) r.push(`Blitz <b>${p.ratings.blitz}</b>`);
+    if (p.ratings.rapid != null) r.push(`Rapid <b>${p.ratings.rapid}</b>`);
+    if (p.ratings.bullet != null) r.push(`Bullet <b>${p.ratings.bullet}</b>`);
+    if (r.length) bits.push(r.join(' &middot; '));
+  }
+  if (p.joined) {
+    bits.push(`On Chess.com since ${new Date(p.joined * 1000).toLocaleDateString(undefined, {month:'short', year:'numeric'})}`);
+  }
+  if (p.league) bits.push(`${p.league} league`);
+  return bits.length ? `<div class="profile-facts">${bits.map(b => `<span>${b}</span>`).join('')}</div>` : '';
 }
 
 function showError(title, detail) {
@@ -1678,6 +1710,7 @@ function buildGraph(key, players, edgesRaw) {
         <div><div class="detail-name">${p.displayName}</div><div class="detail-sub">${(p.accounts || [p.id]).join(' / ')}</div></div>
         <button class="detail-close" id="detailClose${idSuffix}">&times;</button>
       </div>
+      ${profileFactsHtml(p)}
       ${extra}
       <div class="opp-grid">`;
     opp.forEach(o => {

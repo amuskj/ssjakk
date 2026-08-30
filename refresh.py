@@ -60,9 +60,26 @@ def get_json(url):
     return r.json()
 
 
-def fetch_avatar(username):
-    data = get_json(f"https://api.chess.com/pub/player/{username.lower()}")
-    return (data or {}).get("avatar")
+def fetch_profile(username):
+    """Public profile + current ratings for one account — avatar, when they
+    joined Chess.com, their league ladder tier, and their current rating in
+    each time class (whichever last-played snapshot Chess.com has on file)."""
+    profile = get_json(f"https://api.chess.com/pub/player/{username.lower()}") or {}
+    stats = get_json(f"https://api.chess.com/pub/player/{username.lower()}/stats") or {}
+
+    def last_rating(key):
+        return (stats.get(key) or {}).get("last", {}).get("rating")
+
+    return {
+        "avatar": profile.get("avatar"),
+        "joined": profile.get("joined"),
+        "league": profile.get("league"),
+        "ratings": {
+            "blitz": last_rating("chess_blitz"),
+            "rapid": last_rating("chess_rapid"),
+            "bullet": last_rating("chess_bullet"),
+        },
+    }
 
 
 def outcome(game):
@@ -185,11 +202,11 @@ def main():
         persons[p]["favorite"] = favorite
         persons[p]["favoriteScore"] = per_opp[p].get(favorite) if favorite else None
 
-    # ---- avatars ----
-    print("Fetching avatars...")
+    # ---- avatars + public profile facts (join date, league, current ratings) ----
+    print("Fetching avatars, join dates, and current ratings...")
     for p in person_ids:
         account = AVATAR_ACCOUNT_OVERRIDE.get(p, persons[p]["accounts"][0])
-        persons[p]["avatar"] = fetch_avatar(account)
+        persons[p].update(fetch_profile(account))
 
     out = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
