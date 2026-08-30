@@ -19,6 +19,7 @@
     --accent:       #2a78d6;
     --accent-ink:   #ffffff;
     --accent-wash:  rgba(42,120,214,0.10);
+    --accent-deep:  #163a5c;
     --gold:         #a9821c;
     --gold-wash:    #f6ecc9;
     --silver:       #6b6f76;
@@ -52,6 +53,7 @@
       --accent:       #5b9ce8;
       --accent-ink:   #0b1520;
       --accent-wash:  rgba(91,156,232,0.14);
+      --accent-deep:  #0c2740;
       --gold:         #d8b84a;
       --gold-wash:    rgba(216,184,74,0.14);
       --silver:       #a9adb4;
@@ -82,6 +84,7 @@
     --accent:       #5b9ce8;
     --accent-ink:   #0b1520;
     --accent-wash:  rgba(91,156,232,0.14);
+    --accent-deep:  #0c2740;
     --gold:         #d8b84a;
     --gold-wash:    rgba(216,184,74,0.14);
     --silver:       #a9adb4;
@@ -106,17 +109,29 @@
   .shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
 
   /* Header takes its color/type cues from the club's own "Søndagssjakk"
-     poster — gold crest medallions, a bold engraved wordmark, a small
-     banner-style subtitle pill — without reproducing the poster art itself. */
+     poster's calmer half — fjord blues instead of the sunset gold, with a
+     faint seven-peak skyline nodding to De Syv Søstre behind the wordmark —
+     rather than reproducing the poster art itself. */
   .topbar {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 2px solid var(--gold);
+    border-bottom: 2px solid var(--accent);
   }
+  .topbar-peaks {
+    position: absolute;
+    left: 0; right: 0; bottom: 8px;
+    width: 100%; height: 44px;
+    color: var(--accent);
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  .brand, .theme-toggle { position: relative; z-index: 1; }
   .brand { display: flex; align-items: center; gap: 12px; }
   .brand .crest {
     width: 40px; height: 40px;
@@ -125,9 +140,9 @@
     flex-shrink: 0;
     font-size: 20px;
     line-height: 1;
-    color: var(--gold);
-    background: var(--gold-wash);
-    border: 2px solid var(--gold);
+    color: var(--accent);
+    background: var(--accent-wash);
+    border: 2px solid var(--accent);
   }
   .brand h1 {
     font-family: var(--disp);
@@ -136,7 +151,7 @@
     margin: 0;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    background: linear-gradient(180deg, var(--gold), var(--bronze));
+    background: linear-gradient(180deg, var(--accent), var(--accent-deep));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -148,9 +163,9 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--gold) 65%, var(--ink-dim));
-    background: var(--gold-wash);
-    border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--ring));
+    color: color-mix(in srgb, var(--accent) 65%, var(--ink-dim));
+    background: var(--accent-wash);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--ring));
     padding: 3px 9px;
     border-radius: 999px;
   }
@@ -158,14 +173,14 @@
   .theme-toggle {
     width: 38px; height: 38px;
     border-radius: 999px;
-    border: 2px solid var(--gold);
-    background: var(--gold-wash);
+    border: 2px solid var(--accent);
+    background: var(--accent-wash);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
-    color: var(--gold);
+    color: var(--accent);
     font-size: 15px;
   }
-  .theme-toggle:hover { border-color: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
+  .theme-toggle:hover { border-color: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
 
   .tabs {
     display: inline-flex;
@@ -626,8 +641,12 @@
 
 <div class="shell">
   <div class="topbar">
+    <svg class="topbar-peaks" viewBox="0 0 700 100" preserveAspectRatio="none" aria-hidden="true">
+      <title>De Syv Søstre, seen from Sandnessjøen</title>
+      <polygon fill="currentColor" points="0,100 50,30 100,85 150,45 200,85 250,20 300,85 350,40 400,85 450,25 500,85 550,50 600,85 650,15 700,100"></polygon>
+    </svg>
     <div class="brand">
-      <span class="crest">&#9818;</span>
+      <span class="crest" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">&#9818;</span>
       <div>
         <h1>SSJakk</h1>
         <div class="sub">Club leaderboard</div>
