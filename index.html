@@ -105,35 +105,67 @@
 
   .shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
 
+  /* Header takes its color/type cues from the club's own "Søndagssjakk"
+     poster — gold crest medallions, a bold engraved wordmark, a small
+     banner-style subtitle pill — without reproducing the poster art itself. */
   .topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 22px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--gold);
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand .mark { font-size: 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .crest {
+    width: 40px; height: 40px;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--gold);
+    background: var(--gold-wash);
+    border: 2px solid var(--gold);
+  }
   .brand h1 {
     font-family: var(--disp);
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     margin: 0;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, var(--gold), var(--bronze));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
-  .brand .sub { color: var(--ink-mute); font-size: 12.5px; }
+  .brand .sub {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--gold) 65%, var(--ink-dim));
+    background: var(--gold-wash);
+    border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--ring));
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
 
   .theme-toggle {
-    width: 34px; height: 34px;
+    width: 38px; height: 38px;
     border-radius: 999px;
-    border: 1px solid var(--ring);
-    background: var(--surface);
+    border: 2px solid var(--gold);
+    background: var(--gold-wash);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
-    color: var(--ink-dim);
+    color: var(--gold);
     font-size: 15px;
   }
-  .theme-toggle:hover { border-color: var(--ring-strong); color: var(--ink); }
+  .theme-toggle:hover { border-color: color-mix(in srgb, var(--gold) 70%, var(--ink)); }
 
   .tabs {
     display: inline-flex;
@@ -595,7 +627,7 @@
 <div class="shell">
   <div class="topbar">
     <div class="brand">
-      <span class="mark">&#9821;</span>
+      <span class="crest">&#9818;</span>
       <div>
         <h1>SSJakk</h1>
         <div class="sub">Club leaderboard</div>
