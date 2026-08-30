@@ -369,6 +369,12 @@ def main():
             rating_gain = {
                 "person": p, "displayName": DISPLAY_NAMES.get(p, p),
                 "gain": best["gain"], "fromRating": best["fromRating"], "toRating": best["toRating"],
+                # Every game in one arena shares a time control, so this is
+                # simply that week's own time class (blitz/rapid/bullet) --
+                # not to be confused with the lifetime blitz-only chart on
+                # the Trends tab, or the multi-time-class "current rating"
+                # shown on a player's profile card.
+                "timeClass": latest.get("timeClass"),
             }
 
         streak_entry = None

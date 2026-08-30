@@ -1203,9 +1203,12 @@ function renderStorylines(storylines) {
 
   const lines = [];
   const u = storylines.upset;
-  if (u) lines.push(`&#128293; <b>Upset of the week:</b> ${u.winnerDisplayName} (${u.winnerRating}) beat ${u.loserDisplayName} (${u.loserRating}) &mdash; a ${u.gap}-point upset.`);
+  if (u) lines.push(`&#128293; <b>Upset of the week:</b> ${u.winnerDisplayName} (${u.winnerRating}) beat ${u.loserDisplayName} (${u.loserRating}) &mdash; a ${u.gap}-point upset.${u.gameUrl ? ` <a href="${u.gameUrl}" target="_blank" rel="noopener noreferrer">watch &rarr;</a>` : ''}`);
   const g = storylines.ratingGain;
-  if (g) lines.push(`&#128200; <b>Biggest rating gain:</b> ${g.displayName} climbed from ${g.fromRating} to ${g.toRating} (+${g.gain}).`);
+  if (g) {
+    const label = g.timeClass ? ` ${g.timeClass.charAt(0).toUpperCase()}${g.timeClass.slice(1)}` : '';
+    lines.push(`&#128200; <b>Biggest${label} rating gain:</b> ${g.displayName} climbed from ${g.fromRating} to ${g.toRating} (+${g.gain}).`);
+  }
   const s = storylines.streak;
   if (s && s.length >= 2) lines.push(`&#127919; <b>On fire:</b> ${s.displayName} is riding a ${s.length}-game win streak.`);
   const nl = storylines.newLeader;

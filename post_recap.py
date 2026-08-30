@@ -62,14 +62,18 @@ def build_message(sunday):
     headlines = []
     upset = storylines.get("upset")
     if upset:
-        headlines.append(
+        line = (
             f"\U0001F525 **Upset of the week:** {upset['winnerDisplayName']} ({upset['winnerRating']}) beat "
             f"{upset['loserDisplayName']} ({upset['loserRating']}) — a {upset['gap']}-point upset."
         )
+        if upset.get("gameUrl"):
+            line += f" [Watch]({upset['gameUrl']})"
+        headlines.append(line)
     gain = storylines.get("ratingGain")
     if gain:
+        label = f" {gain['timeClass'].capitalize()}" if gain.get("timeClass") else ""
         headlines.append(
-            f"\U0001F4C8 **Biggest rating gain:** {gain['displayName']} climbed from {gain['fromRating']} "
+            f"\U0001F4C8 **Biggest{label} rating gain:** {gain['displayName']} climbed from {gain['fromRating']} "
             f"to {gain['toRating']} (+{gain['gain']})."
         )
     streak = storylines.get("streak")
