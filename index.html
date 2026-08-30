@@ -264,11 +264,13 @@
     padding: 6px 16px; margin-bottom: 28px; box-shadow: var(--shadow);
   }
   .full-standings .fs-row {
-    display: grid; grid-template-columns: 22px 30px 1fr auto; gap: 10px; align-items: center;
+    display: grid; grid-template-columns: 22px 28px 1fr auto; gap: 10px; align-items: center;
     padding: 8px 2px; font-size: 13px; border-bottom: 1px solid var(--ring); cursor: pointer;
   }
   .full-standings .fs-row:last-child { border-bottom: none; }
   .full-standings .fs-row:hover { background: var(--surface-2); margin: 0 -8px; padding: 8px; border-radius: 8px; }
+  .full-standings .fs-row .avatar { width: 28px; height: 28px; border-width: 1px; flex-shrink: 0; }
+  .full-standings .fs-row .avatar-fallback { font-size: 11px; }
   .full-standings .fs-rank { font-family: var(--disp); font-weight: 700; color: var(--ink-mute); font-size: 12px; }
   .full-standings .fs-row.top3 .fs-rank { color: var(--gold); }
   .full-standings .fs-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
