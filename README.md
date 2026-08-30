@@ -129,6 +129,28 @@ turn it on:
 Without that secret set, the workflow just prints what it would have
 posted and skips silently -- nothing breaks.
 
+### Brilliant Moves puzzles
+
+Every refresh also runs `find_brilliancies.py`, which points Stockfish at
+every Sunday game looking for real brilliancies -- not just decisive
+moments, but a genuine sacrifice (real material given up) that still
+holds up under engine review, in a position that wasn't already
+trivially winning. Whatever it finds goes into `brilliancies.json`, and
+the Trends tab turns each one into a click-to-solve puzzle: pick the
+mover's piece, then the square, same as a Lichess/chess.com puzzle
+(there's a "Show the move" button if you get stuck). Everything runs
+server-side during the GitHub Actions job -- the page itself never runs
+an engine, it just replays a saved position.
+
+It's incremental: a game already analyzed is tracked by id in
+`brilliancies.json` and skipped on every later run, so only brand-new
+games get analyzed each time. The very first run analyzes the whole
+Hopen Arena history (roughly a minute of Stockfish time per game, so
+budget up to an hour the first time this runs -- after that, only
+that week's handful of new games need analyzing, so it's quick).
+Needs `stockfish` on the runner (the workflow installs it via
+`apt-get`) -- nothing to set up by hand.
+
 ### Installing the site as an app
 
 `manifest.json` + a small service worker (`sw.js`) make the site

@@ -1,3 +1,4 @@
+<meta charset="UTF-8" />
 <title>SSJakk Leaderboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#163a5c" />
@@ -11,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.js"></script>
 
 <style>
   :root {
@@ -698,6 +700,74 @@
   .openings-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .openings-row .ct { color: var(--ink-mute); font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
 
+
+  /* ---------- trends: brilliant moves puzzle ---------- */
+  .bm-card {
+    background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 18px 18px 20px; margin-bottom: 28px;
+    position: relative; overflow: hidden;
+  }
+  .bm-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--accent)); opacity: 0.55;
+  }
+  .bm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .bm-title { font-family: var(--disp); font-size: 14.5px; font-weight: 600; }
+  .bm-title .solved-tick { color: var(--win); margin-left: 6px; font-size: 13px; }
+  .bm-nav { display: flex; align-items: center; gap: 10px; }
+  .bm-nav button {
+    width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--ring);
+    background: var(--surface-2); color: var(--ink); cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bm-nav button:hover { background: var(--ring); }
+  .bm-nav button:disabled { opacity: 0.35; cursor: default; }
+  .bm-nav #bmCounter { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; min-width: 74px; text-align: center; }
+  .bm-body { display: grid; grid-template-columns: minmax(240px, 360px) 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 640px) { .bm-body { grid-template-columns: 1fr; } }
+  .bm-board {
+    display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--ring-strong); box-shadow: 0 1px 3px rgba(20,20,18,0.08);
+  }
+  .bm-sq {
+    display: flex; align-items: center; justify-content: center; position: relative;
+    font-size: min(6.4vw, 34px); line-height: 1; user-select: none; cursor: pointer;
+  }
+  .bm-sq.light { background: #ead9bd; }
+  .bm-sq.dark { background: #8a6a49; }
+  .bm-sq.white-piece { color: #fbfbf8; text-shadow: 0 0 2px #17181a, 0 0 3px #17181a, 0 1px 1px #17181a; }
+  .bm-sq.black-piece { color: #17181a; text-shadow: 0 0 1px rgba(255,255,255,0.35); }
+  .bm-sq:not(.selectable) { cursor: default; }
+  .bm-sq.selected { box-shadow: inset 0 0 0 3px var(--accent); }
+  .bm-sq.legal-target::after {
+    content: ''; position: absolute; width: 26%; height: 26%; border-radius: 50%;
+    background: rgba(20,20,18,0.28); pointer-events: none;
+  }
+  .bm-sq.legal-target.has-piece::after {
+    width: 88%; height: 88%; border-radius: 50%; background: none;
+    box-shadow: inset 0 0 0 3px rgba(180,60,40,0.55);
+  }
+  .bm-sq.from-sq { box-shadow: inset 0 0 0 3px var(--gold); }
+  .bm-sq.to-sq { box-shadow: inset 0 0 0 3px var(--gold); }
+  .bm-info { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .bm-info .bm-prompt { font-size: 13.5px; line-height: 1.6; }
+  .bm-info .bm-prompt strong { font-weight: 700; }
+  .bm-info .bm-meta { font-size: 11.5px; color: var(--ink-mute); }
+  .bm-status { font-size: 13px; font-weight: 600; min-height: 20px; transition: color 0.15s ease; }
+  .bm-status.correct { color: var(--win); }
+  .bm-status.wrong { color: var(--loss); }
+  .bm-status.revealed { color: var(--ink-dim); }
+  .bm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .bm-btn {
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--ring-strong); background: var(--accent); color: var(--accent-ink);
+    cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .bm-btn:hover { filter: brightness(1.05); }
+  .bm-btn.ghost { background: var(--surface-2); color: var(--ink); }
+  .bm-eval { font-size: 11.5px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--ring-strong); border-radius: 4px; }
 </style>
@@ -790,6 +860,30 @@
 
   <!-- TRENDS -->
   <div class="panel" id="panel-trends">
+    <div class="section-label">Brilliant moves &middot; find the club's best sacrifices yourself</div>
+    <div class="bm-card" id="brilliantMoves">
+      <div class="bm-head">
+        <div class="bm-title" id="bmTitle">Loading&hellip;</div>
+        <div class="bm-nav">
+          <button id="bmPrev" title="Previous puzzle" aria-label="Previous puzzle">&#8592;</button>
+          <span id="bmCounter"></span>
+          <button id="bmNext" title="Next puzzle" aria-label="Next puzzle">&#8594;</button>
+        </div>
+      </div>
+      <div class="bm-body">
+        <div class="bm-board" id="bmBoard"></div>
+        <div class="bm-info">
+          <div class="bm-prompt" id="bmPrompt"></div>
+          <div class="bm-meta" id="bmMeta"></div>
+          <div class="bm-status" id="bmStatus"></div>
+          <div class="bm-actions">
+            <button class="bm-btn ghost" id="bmReveal" type="button">Show the move</button>
+            <a class="bm-btn ghost" id="bmWatch" href="#" target="_blank" rel="noopener">Watch the game &#8599;</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-label">Lifetime rating &middot; blitz, every opponent</div>
     <div class="graph-card" id="trendsLifetimeCard" style="margin-bottom:26px;">
       <div class="graph-head">
@@ -838,6 +932,8 @@
 
 <script>
 let DATA = null;
+let BRILLIANCIES = null;
+let bmState = { idx: 0, list: [], chessGame: null, selected: null, solved: new Set() };
 let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
@@ -1028,6 +1124,24 @@ async function boot() {
     document.getElementById('trendsLog').innerHTML =
       '<div class="empty-state"><div class="icon">&#9823;&#65039;</div><h3>No game log yet</h3><p>Run build_games.py after a session and push games.json to fill this tab in.</p></div>';
   }
+
+  // ---------- Brilliant moves (self-contained -- no chart library needed) ----------
+  if (typeof Chess === 'undefined') {
+    document.getElementById('brilliantMoves').innerHTML =
+      '<div class="empty-state"><div class="icon">&#9820;</div><h3>Puzzle board unavailable</h3><p>chess.js from cdnjs.cloudflare.com was blocked or failed to load, so the interactive board can\'t run right now.</p></div>';
+  } else {
+    try {
+      const res = await fetch('./brilliancies.json', {cache: 'no-store'});
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching brilliancies.json');
+      BRILLIANCIES = await res.json();
+      initBrilliantMoves(BRILLIANCIES);
+    } catch (e) {
+      console.error(e);
+      document.getElementById('brilliantMoves').innerHTML =
+        '<div class="empty-state"><div class="icon">&#9820;</div><h3>No brilliant moves yet</h3><p>find_brilliancies.py runs Stockfish over every Sunday game looking for real sacrifices that hold up under review. It runs automatically after each refresh -- check back after a session or two.</p></div>';
+    }
+  }
+
 
   // ---------- Lifetime rating history (independent — chart needs d3) ----------
   try {
@@ -1502,6 +1616,199 @@ function renderSpecialEvents(sunday, avatarById) {
         <div class="week-rows">${rowsHtml}</div>
       </div>`;
   }).join('');
+}
+
+// ---------- Brilliant moves: interactive puzzle ----------
+// Club-wide showcase of real sacrifices (found by find_brilliancies.py,
+// Stockfish running over every Sunday game) turned into click-to-solve
+// puzzles: pick the mover's piece, then the square you think it belongs
+// on, same as a Lichess/chess.com puzzle. All computation already
+// happened server-side -- this just replays a FEN + the known answer,
+// using chess.js purely to validate clicks and generate the legal-move
+// dots, never to analyze anything itself.
+const BM_GLYPH = {
+  w: { p: '\u2659', n: '\u2658', b: '\u2657', r: '\u2656', q: '\u2655', k: '\u2654' },
+  b: { p: '\u265F', n: '\u265E', b: '\u265D', r: '\u265C', q: '\u265B', k: '\u265A' },
+};
+const BM_SOLVED_KEY = 'ssjakk_solved_puzzles';
+let bmListenersBound = false;
+
+function bmSquareName(file, rank) { return 'abcdefgh'[file] + (rank + 1); }
+
+function bmLoadSolved() {
+  try { return new Set(JSON.parse(localStorage.getItem(BM_SOLVED_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+
+function bmSaveSolved(solvedSet) {
+  try { localStorage.setItem(BM_SOLVED_KEY, JSON.stringify([...solvedSet])); }
+  catch (e) { /* per-viewer convenience only -- fine if it can't persist */ }
+}
+
+function initBrilliantMoves(data) {
+  const list = (data.brilliancies || []).slice();
+  const container = document.getElementById('brilliantMoves');
+  if (!list.length) {
+    container.innerHTML =
+      '<div class="empty-state"><div class="icon">&#9820;</div><h3>No brilliancies found yet</h3>' +
+      '<p>find_brilliancies.py looks for genuine sacrifices that still hold up under engine review -- not just decisive moments. Give the club a few more Sundays.</p></div>';
+    return;
+  }
+  bmState = { idx: 0, list, chessGame: null, selected: null, solved: bmLoadSolved() };
+
+  if (!bmListenersBound) {
+    document.getElementById('bmPrev').addEventListener('click', () => bmLoadPuzzle(bmState.idx - 1));
+    document.getElementById('bmNext').addEventListener('click', () => bmLoadPuzzle(bmState.idx + 1));
+    document.getElementById('bmReveal').addEventListener('click', bmRevealAnswer);
+    document.getElementById('bmBoard').addEventListener('click', (ev) => {
+      const sqEl = ev.target.closest('.bm-sq');
+      if (sqEl) bmOnSquareClick(sqEl.dataset.sq);
+    });
+    bmListenersBound = true;
+  }
+
+  bmLoadPuzzle(0);
+}
+
+function bmLoadPuzzle(i) {
+  const st = bmState;
+  st.idx = ((i % st.list.length) + st.list.length) % st.list.length;
+  const puzzle = st.list[st.idx];
+  st.chessGame = new Chess(puzzle.fenBefore);
+  st.selected = null;
+  st.solvedThisPuzzle = st.solved.has(puzzle.id);
+  st.revealed = false;
+
+  const solvedTick = st.solvedThisPuzzle ? ' <span class="solved-tick" title="You\'ve solved this one">&#10003;</span>' : '';
+  document.getElementById('bmTitle').innerHTML = 'Brilliant Moves' + solvedTick;
+  document.getElementById('bmCounter').textContent = `Puzzle ${st.idx + 1} of ${st.list.length}`;
+  document.getElementById('bmPrev').disabled = st.list.length < 2;
+  document.getElementById('bmNext').disabled = st.list.length < 2;
+
+  const moverIs = puzzle.mover === 'white' ? 'White' : 'Black';
+  document.getElementById('bmPrompt').innerHTML =
+    `<strong>${puzzle.displayName}</strong> to move (${moverIs}) against <strong>${puzzle.opponentDisplayName}</strong> &mdash; find the sacrifice!`;
+  const d = puzzle.date ? new Date(puzzle.date + 'T00:00:00') : null;
+  document.getElementById('bmMeta').textContent = d ? d.toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
+  document.getElementById('bmStatus').className = 'bm-status';
+  document.getElementById('bmStatus').textContent = '';
+  document.getElementById('bmReveal').textContent = 'Show the move';
+  document.getElementById('bmWatch').href = puzzle.gameUrl || '#';
+
+  bmRenderBoard();
+}
+
+function bmRenderBoard() {
+  const st = bmState;
+  const game = st.chessGame;
+  const puzzle = st.list[st.idx];
+  const orientationWhite = puzzle.mover === 'white';
+  const files = orientationWhite ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const ranks = orientationWhite ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+
+  let legalTargets = [];
+  if (st.selected && !st.revealed) {
+    legalTargets = game.moves({ square: st.selected, verbose: true }).map(m => m.to);
+  }
+
+  const board = document.getElementById('bmBoard');
+  let html = '';
+  for (const r of ranks) {
+    for (const f of files) {
+      const sq = bmSquareName(f, r);
+      const piece = game.get(sq);
+      const isLight = (f + r) % 2 === 1;
+      const classes = ['bm-sq', isLight ? 'light' : 'dark'];
+      if (piece) classes.push(piece.color === 'w' ? 'white-piece' : 'black-piece');
+      if (!st.revealed && piece && piece.color === game.turn()) classes.push('selectable');
+      if (st.selected === sq) classes.push('selected');
+      if (legalTargets.includes(sq)) { classes.push('legal-target'); if (piece) classes.push('has-piece'); }
+      const glyph = piece ? BM_GLYPH[piece.color][piece.type] : '';
+      html += `<div class="${classes.join(' ')}" data-sq="${sq}">${glyph}</div>`;
+    }
+  }
+  board.innerHTML = html;
+}
+
+function bmOnSquareClick(sq) {
+  const st = bmState;
+  if (st.revealed || st.solvedThisPuzzle) return;
+  const game = st.chessGame;
+  const piece = game.get(sq);
+
+  if (st.selected) {
+    if (st.selected === sq) { st.selected = null; bmRenderBoard(); return; }
+    const moveObj = game.move({ from: st.selected, to: sq, promotion: 'q' });
+    st.selected = null;
+    if (moveObj) {
+      bmCheckAttempt(moveObj);
+      return;
+    }
+    if (piece && piece.color === game.turn()) { st.selected = sq; }
+    bmRenderBoard();
+    return;
+  }
+  if (piece && piece.color === game.turn()) {
+    st.selected = sq;
+    bmRenderBoard();
+  }
+}
+
+function bmCheckAttempt(moveObj) {
+  const st = bmState;
+  const puzzle = st.list[st.idx];
+  const uci = moveObj.from + moveObj.to + (moveObj.promotion || '');
+  const statusEl = document.getElementById('bmStatus');
+
+  if (uci === puzzle.correctUci) {
+    st.solvedThisPuzzle = true;
+    st.solved.add(puzzle.id);
+    bmSaveSolved(st.solved);
+    statusEl.className = 'bm-status correct';
+    statusEl.innerHTML = `&#9989; Brilliant! <strong>${moveObj.san}</strong> was the move &mdash; eval held at ${bmFormatEval(puzzle.evalAfter)} after risking real material.`;
+    document.getElementById('bmTitle').innerHTML = 'Brilliant Moves <span class="solved-tick" title="You\'ve solved this one">&#10003;</span>';
+    bmRenderBoard();
+  } else {
+    statusEl.className = 'bm-status wrong';
+    statusEl.textContent = `Not quite -- ${moveObj.san} doesn't hold up. Try again.`;
+    bmRenderBoard();
+    setTimeout(() => {
+      if (st.list[st.idx] !== puzzle || st.solvedThisPuzzle) return;
+      st.chessGame = new Chess(puzzle.fenBefore);
+      bmRenderBoard();
+    }, 750);
+  }
+}
+
+function bmRevealAnswer() {
+  const st = bmState;
+  const puzzle = st.list[st.idx];
+  st.chessGame = new Chess(puzzle.fenBefore);
+  const moveObj = st.chessGame.move({
+    from: puzzle.correctUci.slice(0, 2), to: puzzle.correctUci.slice(2, 4),
+    promotion: puzzle.correctUci.slice(4) || 'q',
+  });
+  st.selected = null;
+  st.revealed = true;
+  const statusEl = document.getElementById('bmStatus');
+  statusEl.className = 'bm-status revealed';
+  statusEl.innerHTML = moveObj
+    ? `The move was <strong>${moveObj.san}</strong> &mdash; eval ${bmFormatEval(puzzle.evalBefore)} &rarr; ${bmFormatEval(puzzle.evalAfter)}, risking a whole ${bmMaterialLabel(puzzle.materialRisked)}.`
+    : 'Could not replay the answer.';
+  bmRenderBoard();
+}
+
+function bmFormatEval(cp) {
+  if (cp == null) return '?';
+  const pawns = (cp / 100).toFixed(1);
+  return (cp > 0 ? '+' : '') + pawns;
+}
+
+function bmMaterialLabel(risked) {
+  if (risked >= 9) return 'queen';
+  if (risked >= 5) return 'rook';
+  if (risked >= 3) return 'minor piece';
+  return 'pawn';
 }
 
 // ---------- Trends: helpers ----------

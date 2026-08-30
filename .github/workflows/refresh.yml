@@ -45,7 +45,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install requests
+      - run: pip install requests chess
+
+      - name: Install Stockfish (for brilliant-move detection)
+        run: sudo apt-get update && sudo apt-get install -y stockfish
 
       - name: Register a new tournament (manual trigger only)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.tournament_url
@@ -60,6 +63,9 @@ jobs:
       - name: Rebuild full game log
         run: python build_games.py
 
+      - name: Find brilliant moves (Stockfish analysis, incremental)
+        run: python find_brilliancies.py
+
       - name: Post weekly Discord recap
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -72,6 +78,7 @@ jobs:
           git add data.json ratings.json sunday.json games.json
           [ -f discovered_tournaments.json ] && git add discovered_tournaments.json
           [ -f .last_recap_week ] && git add .last_recap_week
+          [ -f brilliancies.json ] && git add brilliancies.json
           if git diff --cached --quiet; then
             echo "Nothing changed."
           else

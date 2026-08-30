@@ -36,6 +36,7 @@ import requests
 from config import USERNAMES, USERNAME_TO_PERSON, DISPLAY_NAMES, HEADERS, TOURNAMENT_IDS, extract_id
 
 OUT_FILE = "games.json"
+PGN_CACHE_FILE = ".game_pgns_cache.json"
 
 CLK_RE = re.compile(r"\{\[%clk\s+([0-9:.]+)\]\}")
 
@@ -123,6 +124,7 @@ def build_game_record(g, tid, tournament_name, date):
 
 def main():
     games = []
+    pgn_by_id = {}
     for entry in TOURNAMENT_IDS:
         tid = extract_id(entry)
         print(f"Fetching {tid}...")
@@ -136,7 +138,10 @@ def main():
             if finish_time else None
         )
         for g in round_data.get("games", []):
-            games.append(build_game_record(g, tid, meta.get("name"), date))
+            record = build_game_record(g, tid, meta.get("name"), date)
+            games.append(record)
+            if g.get("pgn"):
+                pgn_by_id[record["id"]] = g["pgn"]
 
     # Opportunistic accuracy: only present when someone ran Game Review.
     # Only worth checking the months our known tournaments actually fall in.
@@ -167,8 +172,12 @@ def main():
     with open(OUT_FILE, "w") as f:
         json.dump(out, f, indent=None)
 
+    with open(PGN_CACHE_FILE, "w") as f:
+        json.dump(pgn_by_id, f)
+
     with_acc = sum(1 for g in games if g["accuracyWhite"] is not None)
     print(f"\nWrote {OUT_FILE}: {len(games)} games, {with_acc} with accuracy data.")
+    print(f"Wrote {PGN_CACHE_FILE}: {len(pgn_by_id)} PGNs (scratch file for find_brilliancies.py, not committed).")
 
 
 if __name__ == "__main__":
