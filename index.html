@@ -326,7 +326,9 @@
   .full-standings .fs-row .avatar { width: 28px; height: 28px; border-width: 1px; flex-shrink: 0; }
   .full-standings .fs-row .avatar-fallback { font-size: 11px; }
   .full-standings .fs-rank { font-family: var(--disp); font-weight: 700; color: var(--ink-mute); font-size: 12px; }
-  .full-standings .fs-row.top3 .fs-rank { color: var(--gold); }
+  .full-standings .fs-row.rank-1 .fs-rank { color: var(--gold); }
+  .full-standings .fs-row.rank-2 .fs-rank { color: var(--silver); }
+  .full-standings .fs-row.rank-3 .fs-rank { color: var(--bronze); }
   .full-standings .fs-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .full-standings .fs-metric { font-size: 11.5px; color: var(--ink-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .full-standings .fs-metric b { color: var(--ink); }
@@ -649,11 +651,8 @@
 <div class="shell">
   <div class="topbar">
     <svg class="topbar-peaks" viewBox="0 0 700 100" preserveAspectRatio="none" aria-hidden="true">
-      <title>De Syv Søstre, seen from Sandnessjøen &mdash; and two old rivals still playing it out on the ridge</title>
+      <title>De Syv Søstre, seen from Sandnessjøen</title>
       <path d="M0,70 Q25,70 50,30 Q75,70 100,70 Q125,70 150,42 Q175,70 200,70 Q225,70 250,22 Q275,70 300,70 Q325,70 350,38 Q375,70 400,70 Q425,70 450,28 Q475,70 500,70 Q525,70 550,48 Q575,70 600,70 Q625,70 650,18 Q675,70 700,70"></path>
-      <path d="M336,79 Q331,86 344,90 M364,79 Q369,86 356,90 M340,90 h20 v6 h-20 z M350,90 v6" stroke-width="1.1"></path>
-      <circle cx="336" cy="76" r="2.6" fill="currentColor" stroke="none"></circle>
-      <circle cx="364" cy="76" r="2.6" fill="currentColor" stroke="none"></circle>
     </svg>
     <div class="brand">
       <span class="crest" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">&#9818;</span>
@@ -828,6 +827,11 @@ function tournamentMetaHtml(w) {
 function activeTab() {
   const el = document.querySelector('.tab.active');
   return el ? el.dataset.tab : null;
+}
+// Very subtle gold/silver/bronze on just the rank number for 1st/2nd/3rd
+// in a full-standings list — same medal colors as the podium cards above it.
+function rankClass(i) {
+  return i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
 }
 // Selecting a player from a leaderboard row (rather than clicking their
 // node directly) opens the same head-to-head detail sheet the graph uses —
@@ -1036,11 +1040,10 @@ function renderSundayLeaderboard(sunday, avatarById, mode) {
 
   const podiumEl = document.getElementById('sundayPodium');
   podiumEl.innerHTML = '';
-  const rankClass = ['rank-1','rank-2','rank-3'];
   const rankIcon = ['&#129351;','&#129352;','&#129353;'];
   top3.forEach((p, i) => {
     const card = document.createElement('div');
-    card.className = 'podium-card ' + rankClass[i];
+    card.className = 'podium-card ' + rankClass(i);
     card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
       ${avatarOrFallback({...p, avatar: avatarById[p.person]}, i === 0 ? 72 : 54)}
       <div>
@@ -1053,7 +1056,7 @@ function renderSundayLeaderboard(sunday, avatarById, mode) {
 
   const fsEl = document.getElementById('sundayFullStandings');
   fsEl.innerHTML = ranked.map((p, i) => `
-    <div class="fs-row ${i < 3 ? 'top3' : ''}" data-person="${p.person}">
+    <div class="fs-row ${rankClass(i)}" data-person="${p.person}">
       <span class="fs-rank">${i + 1}</span>
       ${avatarOrFallback({...p, avatar: avatarById[p.person]}, 28)}
       <span class="fs-name">${p.displayName}</span>
@@ -1078,11 +1081,10 @@ function renderRivalryLeaderboard(players) {
 
   const podiumEl = document.getElementById('rivalryPodium');
   podiumEl.innerHTML = '';
-  const rankClass = ['rank-1','rank-2','rank-3'];
   const rankIcon = ['&#129351;','&#129352;','&#129353;'];
   top3.forEach((p, i) => {
     const card = document.createElement('div');
-    card.className = 'podium-card ' + rankClass[i];
+    card.className = 'podium-card ' + rankClass(i);
     card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
       ${avatarOrFallback(p, i === 0 ? 72 : 54)}
       <div>
@@ -1095,7 +1097,7 @@ function renderRivalryLeaderboard(players) {
 
   const fsEl = document.getElementById('rivalryFullStandings');
   fsEl.innerHTML = ranked.map((p, i) => `
-    <div class="fs-row ${i < 3 ? 'top3' : ''}" data-person="${p.id}">
+    <div class="fs-row ${rankClass(i)}" data-person="${p.id}">
       <span class="fs-rank">${i + 1}</span>
       ${avatarOrFallback(p, 28)}
       <span class="fs-name">${p.displayName}</span>
@@ -1192,13 +1194,12 @@ function renderSpecialEvents(sunday, avatarById) {
   }
   label.style.display = '';
 
-  const rankClass = ['rank-1', 'rank-2', 'rank-3'];
   const rankIcon = ['&#129351;', '&#129352;', '&#129353;'];
 
   container.innerHTML = events.map(ev => {
     const top3 = ev.standings.slice(0, 3);
     const podiumHtml = top3.map((s, i) => `
-      <div class="podium-card ${rankClass[i]}">
+      <div class="podium-card ${rankClass(i)}">
         <span class="rank-badge">${rankIcon[i]}</span>
         ${avatarOrFallback({ displayName: s.displayName, avatar: avatarById[s.person] }, i === 0 ? 72 : 54)}
         <div>
