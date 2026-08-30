@@ -4,15 +4,21 @@ SSJakk leaderboard data refresh.
 
 Pulls every club member's public Chess.com game history, tallies lifetime
 head-to-head records between members, and writes data.json next to this
-script (which index.html loads at page load).
+script (which index.html loads at page load). Along the way it also
+records each member's own blitz rating over time (one point per calendar
+day, from every blitz game they've played, not just club games) and writes
+that to ratings.json, which powers the Trends tab's "Lifetime Rating"
+chart — no extra API calls, since this script already pages through every
+member's full archive history for the head-to-head tally.
 
 Run it whenever you want the site's numbers to catch up to reality:
 
     python refresh.py
 
-Then commit + push data.json (and index.html/CNAME if you changed them):
+Then commit + push data.json and ratings.json (and index.html/CNAME if you
+changed them):
 
-    git add data.json
+    git add data.json ratings.json
     git commit -m "Refresh leaderboard data"
     git push
 
@@ -41,7 +47,9 @@ from config import (
 # file when the club roster changes, not here.
 
 OUT_FILE = "data.json"
+RATINGS_OUT_FILE = "ratings.json"
 MIN_GAMES_FOR_NEMESIS = 5
+RATING_TIME_CLASS = "blitz"
 
 
 def get_json(url):
@@ -69,6 +77,11 @@ def main():
     member_set = {u.lower() for u in USERNAMES}
     seen_games = set()
     h2h = {}  # (userA, userB) sorted -> {p1,p2,p1Wins,p2Wins,draws}
+    # username(lower) -> {"YYYY-MM-DD": (end_time, rating)} — that user's own
+    # rating on the last RATING_TIME_CLASS game they played each day, across
+    # every opponent (not just club members). Free to collect here since
+    # we're already paging through every archive for h2h purposes.
+    ratings_by_username = {u.lower(): {} for u in USERNAMES}
 
     for username in USERNAMES:
         u_lower = username.lower()
@@ -84,6 +97,17 @@ def main():
                 white = g.get("white", {})
                 black = g.get("black", {})
                 wu, bu = white.get("username", "").lower(), black.get("username", "").lower()
+
+                if g.get("time_class") == RATING_TIME_CLASS and g.get("end_time"):
+                    side = white if wu == u_lower else black if bu == u_lower else None
+                    if side is not None and side.get("rating") is not None:
+                        et = g["end_time"]
+                        d = datetime.fromtimestamp(et, tz=timezone.utc).strftime("%Y-%m-%d")
+                        bucket = ratings_by_username[u_lower]
+                        cur = bucket.get(d)
+                        if cur is None or et > cur[0]:
+                            bucket[d] = (et, side["rating"])
+
                 if wu not in member_set or bu not in member_set or wu == bu:
                     continue
                 gid = g.get("uuid") or g.get("url")
@@ -177,6 +201,34 @@ def main():
 
     print(f"\nWrote {OUT_FILE}: {len(persons)} players, {len(edges)} rivalries, "
           f"{sum(e['total'] for e in edges)} games total.")
+
+    # ---- lifetime rating history (merge alt accounts into one person,
+    # taking whichever side played later on days both played) ----
+    ratings_by_person = {}
+    for u_lower, day_map in ratings_by_username.items():
+        p = USERNAME_TO_PERSON.get(u_lower, u_lower)
+        bucket = ratings_by_person.setdefault(p, {})
+        for d, (et, rating) in day_map.items():
+            cur = bucket.get(d)
+            if cur is None or et > cur[0]:
+                bucket[d] = (et, rating)
+
+    ratings_players = {
+        p: [[et, rating] for et, rating in sorted(bucket.values(), key=lambda x: x[0])]
+        for p, bucket in ratings_by_person.items()
+    }
+    ratings_out = {
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "timeClass": RATING_TIME_CLASS,
+        "displayNames": {p: DISPLAY_NAMES.get(p, p) for p in ratings_players},
+        "players": ratings_players,
+    }
+    with open(RATINGS_OUT_FILE, "w") as f:
+        json.dump(ratings_out, f, indent=None)
+
+    total_points = sum(len(v) for v in ratings_players.values())
+    print(f"Wrote {RATINGS_OUT_FILE}: {len(ratings_players)} players, "
+          f"{total_points} daily {RATING_TIME_CLASS} rating points.")
 
 
 if __name__ == "__main__":

@@ -1,16 +1,20 @@
 # SSJakk Leaderboard
 
 Static site: `index.html` reads `data.json` (Rivalry tab), `sunday.json`
-(Sunday Standings tab), and `games.json` (Trends tab) at load time.
+(Sunday Standings tab), `games.json`, and `ratings.json` (Trends tab) at
+load time.
 
 - `refresh.py` regenerates `data.json` — lifetime head-to-head across every
-  game club members have played each other on Chess.com.
+  game club members have played each other on Chess.com — and
+  `ratings.json` — each member's own blitz rating over time (one point per
+  day they played, across all opponents, not just club games).
 - `backfill_sunday.py` regenerates `sunday.json` — results from the weekly
   "Hopen Arena" tournaments, plus an arena-only head-to-head graph.
 - `build_games.py` regenerates `games.json` — every individual game from
   every arena (ratings, clock times, opening, move count, and accuracy where
-  it exists), which powers the Trends tab: rating-over-time chart, the full
-  match log, the sweaty-game leaderboard, and the club-record badges.
+  it exists), which powers the Trends tab: the arena rating chart, the full
+  match log, the sweaty-game leaderboard, the opening breakdown, and the
+  club-record lists.
 - `config.py` holds the shared roster, the tournament list, and the
   "nemesis" calculation that all three scripts import from.
 
@@ -63,10 +67,10 @@ After each Sunday session:
 
 ```
 pip install requests   # once
-python refresh.py            # lifetime rivalry data -> data.json
+python refresh.py            # lifetime rivalry + rating history -> data.json, ratings.json
 python backfill_sunday.py    # Sunday arena results -> sunday.json
 python build_games.py        # full per-game log -> games.json
-git add data.json sunday.json games.json
+git add data.json ratings.json sunday.json games.json
 git commit -m "Refresh leaderboard data"
 git push
 ```
@@ -101,6 +105,8 @@ Re-run all three afterward.
   detector. Real move-quality analysis (Stockfish over each game's PGN) is a
   future addition, not yet built.
 - Accuracy is opportunistic (see above) — most games won't have it yet.
-- The rating-over-time chart plots each player's live blitz rating as
-  sampled at every club game, not a rating computed purely from club games —
-  it also moves from anything they play outside the club between sessions.
+- The Trends tab has two rating charts. "Arena Rating" plots each player's
+  live rating as sampled at every Hopen Arena game, so it also reflects
+  anything they play outside the club between sessions. "Lifetime Rating"
+  plots one point per calendar day from their entire blitz history (any
+  opponent, not just club games or club sessions) — currently blitz only.

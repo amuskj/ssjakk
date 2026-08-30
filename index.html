@@ -162,11 +162,15 @@
   /* ---------- podium ---------- */
   .podium {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "first first" "second third";
     gap: 14px;
     margin-bottom: 30px;
+    align-items: stretch;
   }
-  @media (max-width: 700px) { .podium { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) {
+    .podium { grid-template-columns: 1fr; grid-template-areas: "first" "second" "third"; }
+  }
 
   .podium-card {
     background: var(--surface);
@@ -179,18 +183,44 @@
     box-shadow: var(--shadow);
     position: relative;
     overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .podium-card.rank-1 { border-color: color-mix(in srgb, var(--gold) 40%, var(--ring)); }
-  .podium-card.rank-2 { border-color: color-mix(in srgb, var(--silver) 40%, var(--ring)); }
-  .podium-card.rank-3 { border-color: color-mix(in srgb, var(--bronze) 40%, var(--ring)); }
+  .podium-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
+  .podium-card.rank-1 {
+    grid-area: first;
+    border-color: color-mix(in srgb, var(--gold) 45%, var(--ring));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 7%, var(--surface)), var(--surface) 65%);
+    flex-direction: column;
+    text-align: center;
+    padding: 24px 20px 22px;
+    gap: 8px;
+  }
+  .podium-card.rank-1::after {
+    content: '\265B';
+    position: absolute;
+    right: -14px; bottom: -26px;
+    font-size: 108px;
+    line-height: 1;
+    color: var(--gold);
+    opacity: 0.07;
+    pointer-events: none;
+  }
+  .podium-card.rank-2 { grid-area: second; border-color: color-mix(in srgb, var(--silver) 40%, var(--ring)); }
+  .podium-card.rank-3 { grid-area: third; border-color: color-mix(in srgb, var(--bronze) 40%, var(--ring)); }
 
   .rank-badge {
     position: absolute;
     top: 10px; right: 12px;
     font-family: var(--disp);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 20px;
     color: var(--ink-mute);
+    line-height: 1;
+  }
+  .podium-card.rank-1 .rank-badge {
+    position: static;
+    font-size: 32px;
+    margin-bottom: 2px;
   }
 
   .avatar {
@@ -212,6 +242,7 @@
   }
 
   .podium-name { font-family: var(--disp); font-weight: 600; font-size: 15px; }
+  .podium-card.rank-1 .podium-name { font-size: 18px; }
   .podium-metric { font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
   .podium-metric b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
@@ -224,6 +255,12 @@
   .section-label {
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--ink-mute); font-weight: 600; margin: 2px 0 10px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .section-label::before {
+    content: '\2658';
+    font-size: 13px; color: var(--ink-mute); opacity: 0.55;
+    text-transform: none; letter-spacing: normal;
   }
 
   /* ---------- upset callout ---------- */
@@ -232,12 +269,14 @@
     border: 1px solid var(--ring);
     border-radius: 16px;
     padding: 16px 18px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     box-shadow: var(--shadow);
     display: flex;
     align-items: center;
     gap: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
+  .upset-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
   .upset-card .bolt { font-size: 22px; flex-shrink: 0; }
   .upset-card .body { flex: 1; min-width: 0; }
   .upset-card .line { font-family: var(--disp); font-size: 14px; line-height: 1.5; }
@@ -254,7 +293,9 @@
     border-radius: 14px;
     padding: 14px 16px 16px;
     box-shadow: var(--shadow);
+    transition: box-shadow 0.15s ease;
   }
+  .week-card:hover { box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
   .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; }
   .week-head .date { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; }
@@ -287,6 +328,13 @@
     border-radius: 16px;
     box-shadow: var(--shadow);
     overflow: hidden;
+    position: relative;
+  }
+  .graph-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    opacity: 0.55;
   }
   .graph-head {
     display: flex;
@@ -425,12 +473,49 @@
 
   /* ---------- trends: fun badges ---------- */
   .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 12px; margin-bottom: 28px; }
-  .badge-card { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
-  .badge-card .b-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-mute); font-weight: 700; margin-bottom: 6px; }
+  .badge-card {
+    background: var(--surface); border: 1px solid var(--ring); border-radius: 14px;
+    padding: 14px 16px; box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .badge-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
+  .badge-card .b-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-mute); font-weight: 700; margin-bottom: 8px; }
   .badge-card .b-body { font-family: var(--disp); font-size: 14px; font-weight: 600; line-height: 1.4; }
   .badge-card .b-sub { font-size: 11.5px; color: var(--ink-dim); margin-top: 4px; }
   .badge-card a { color: var(--accent); text-decoration: none; }
   .badge-card a:hover { text-decoration: underline; }
+
+  /* ---------- trends: ranked record lists ---------- */
+  .b-list { display: flex; flex-direction: column; gap: 7px; }
+  .b-list-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; line-height: 1.4; }
+  .b-list-row .rk {
+    font-family: var(--disp); font-weight: 700; font-size: 11px; color: var(--ink-mute);
+    width: 15px; flex-shrink: 0;
+  }
+  .b-list-row .nm { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .b-list-row .val { color: var(--ink-dim); font-size: 11px; white-space: nowrap; }
+  .b-list-row .val a { font-weight: 600; }
+
+  /* ---------- trends: openings pie ---------- */
+  .openings-wrap {
+    display: grid; grid-template-columns: 200px 1fr; gap: 26px; align-items: center;
+    background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
+    padding: 20px; box-shadow: var(--shadow); margin-bottom: 28px;
+  }
+  @media (max-width: 640px) { .openings-wrap { grid-template-columns: 1fr; } }
+  .openings-donut-wrap { position: relative; width: 180px; height: 180px; margin: 0 auto; }
+  .openings-donut-wrap svg { display: block; }
+  .openings-donut-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; pointer-events: none;
+  }
+  .openings-donut-center .num { font-family: var(--disp); font-weight: 700; font-size: 22px; }
+  .openings-donut-center .lbl { font-size: 9.5px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.06em; }
+  .openings-list { display: flex; flex-direction: column; gap: 8px; }
+  .openings-row { display: grid; grid-template-columns: 10px 1fr auto; gap: 9px; align-items: center; font-size: 12.5px; }
+  .openings-row .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .openings-row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .openings-row .ct { color: var(--ink-mute); font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--ring-strong); border-radius: 4px; }
@@ -457,7 +542,6 @@
   <!-- SUNDAY STANDINGS -->
   <div class="panel active" id="panel-sunday">
     <div id="sundayPodium" class="podium"></div>
-    <div id="sundayUpset"></div>
     <div id="sundayWeeks" class="week-list"></div>
 
     <div class="graph-card" id="sundayGraphCard" style="display:none;">
@@ -506,9 +590,23 @@
 
   <!-- TRENDS -->
   <div class="panel" id="panel-trends">
-    <div class="graph-card" id="trendsChartCard" style="margin-bottom:26px;">
+    <div class="section-label">Lifetime rating &middot; blitz, every opponent</div>
+    <div class="graph-card" id="trendsLifetimeCard" style="margin-bottom:26px;">
       <div class="graph-head">
-        <h2>Rating over time</h2>
+        <h2>Lifetime rating</h2>
+        <span class="hint">click a name to toggle it</span>
+      </div>
+      <div class="chart-wrap" id="trendsLifetimeWrap">
+        <svg id="vizLifetime"></svg>
+        <div class="tooltip" id="tooltipLifetime"></div>
+      </div>
+      <div class="chart-legend" id="trendsLifetimeLegend"></div>
+    </div>
+
+    <div class="section-label">Arena rating &middot; Hopen Arena sessions only</div>
+    <div class="graph-card" id="trendsChartCard" style="margin-bottom:28px;">
+      <div class="graph-head">
+        <h2>Arena rating</h2>
         <span class="hint">click a name to toggle it</span>
       </div>
       <div class="chart-wrap" id="trendsChartWrap">
@@ -518,8 +616,14 @@
       <div class="chart-legend" id="trendsLegend"></div>
     </div>
 
+    <div class="section-label">Biggest upsets &middot; lower-rated player wins</div>
+    <div id="trendsUpsets" style="margin-bottom:28px;"></div>
+
     <div class="section-label">Sweaty games &middot; both players scrambling on the clock</div>
     <div id="trendsSweaty" style="margin-bottom:28px;"></div>
+
+    <div class="section-label">Openings</div>
+    <div id="trendsOpenings" class="openings-wrap"></div>
 
     <div class="section-label">Club records</div>
     <div id="trendsBadges" class="badge-grid"></div>
@@ -536,6 +640,7 @@
 let DATA = null;
 let SUNDAY = null;
 let GAMES = null;
+let RATINGS = null;
 let NAME_MAP = {};
 const graphsBuilt = {};
 const graphApi = {};
@@ -563,7 +668,6 @@ function showError(title, detail) {
 }
 function showSundayEmpty(title, detail) {
   document.getElementById('sundayPodium').innerHTML = '';
-  document.getElementById('sundayUpset').innerHTML = '';
   document.getElementById('sundayWeeks').innerHTML =
     '<div class="empty-state"><div class="icon">&#128197;</div><h3>' + title + '</h3><p>' + detail + '</p></div>';
   document.getElementById('sundayFoot').innerHTML = '';
@@ -612,9 +716,16 @@ function ensureGraph(tab) {
     graphsBuilt.rivalry = true;
   }
   if (tab === 'trends') {
-    if (!GAMES || !GAMES.length || typeof d3 === 'undefined') return;
-    buildRatingChart(GAMES);
-    graphsBuilt.trends = true;
+    if (typeof d3 === 'undefined') return;
+    if (!graphsBuilt.trendsArena && GAMES && GAMES.length) {
+      buildRatingChart(GAMES);
+      graphsBuilt.trendsArena = true;
+    }
+    if (!graphsBuilt.trendsLifetime && RATINGS && RATINGS.players && Object.keys(RATINGS.players).length) {
+      buildLifetimeRatingChart(RATINGS.players);
+      graphsBuilt.trendsLifetime = true;
+    }
+    if (graphsBuilt.trendsArena && graphsBuilt.trendsLifetime) graphsBuilt.trends = true;
   }
 }
 
@@ -642,8 +753,10 @@ async function boot() {
     GAMES = payload.games || [];
     GAMES.forEach(g => { NAME_MAP[g.white.person] = g.white.displayName; NAME_MAP[g.black.person] = g.black.displayName; });
     renderMatchLog(GAMES);
-    renderTrendsBadges(GAMES);
+    renderUpsets(GAMES);
     renderSweatyGames(GAMES);
+    renderOpenings(GAMES);
+    renderTrendsBadges(GAMES);
     document.getElementById('trendsFoot').innerHTML =
       `${GAMES.length} games logged across every Sunday arena &middot; generated ${new Date(payload.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
     ensureGraph('trends');
@@ -651,6 +764,19 @@ async function boot() {
     console.error(e);
     document.getElementById('trendsLog').innerHTML =
       '<div class="empty-state"><div class="icon">&#9823;&#65039;</div><h3>No game log yet</h3><p>Run build_games.py after a session and push games.json to fill this tab in.</p></div>';
+  }
+
+  // ---------- Lifetime rating history (independent — chart needs d3) ----------
+  try {
+    const res = await fetch('./ratings.json', {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching ratings.json');
+    RATINGS = await res.json();
+    Object.assign(NAME_MAP, RATINGS.displayNames || {});
+    ensureGraph('trends');
+  } catch (e) {
+    console.error(e);
+    document.getElementById('trendsLifetimeWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">&#9818;</div><h3>No lifetime rating data yet</h3><p>Run refresh.py to generate ratings.json.</p></div>';
   }
 
   // ---------- Rivalry (needs d3 + data.json) ----------
@@ -678,7 +804,7 @@ async function boot() {
       const card = document.createElement('div');
       card.className = 'podium-card ' + rankClass[i];
       card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
-        ${avatarOrFallback(p, 54)}
+        ${avatarOrFallback(p, i === 0 ? 72 : 54)}
         <div>
           <div class="podium-name">${p.displayName}</div>
           <div class="podium-metric"><span class="chip win">${p.wins}W</span> &middot; <span class="chip loss">${p.losses}L</span> &middot; <span class="chip draw">${p.draws}D</span></div>
@@ -708,7 +834,7 @@ function renderSunday(sunday) {
     const card = document.createElement('div');
     card.className = 'podium-card ' + rankClass[i];
     card.innerHTML = `<span class="rank-badge">${rankIcon[i]}</span>
-      ${avatarOrFallback({...p, avatar: avatarById[p.person]}, 54)}
+      ${avatarOrFallback({...p, avatar: avatarById[p.person]}, i === 0 ? 72 : 54)}
       <div>
         <div class="podium-name">${p.displayName}</div>
         <div class="podium-metric"><b>${p.firsts}</b> firsts &middot; ${p.podiums} podiums &middot; avg #${p.avgPlace}</div>
@@ -716,20 +842,6 @@ function renderSunday(sunday) {
     card.addEventListener('click', () => graphApi.sunday && graphApi.sunday.selectNode(p.person));
     podiumEl.appendChild(card);
   });
-
-  // biggest upset callout
-  const u = sunday.biggestUpsetOverall;
-  const upsetEl = document.getElementById('sundayUpset');
-  if (u) {
-    upsetEl.innerHTML = `<div class="upset-card">
-      <div class="bolt">&#9889;</div>
-      <div class="body">
-        <div class="line"><span class="chip win">${u.winnerDisplayName}</span> <span class="r">(${u.winnerRating})</span> upset <span class="chip loss">${u.loserDisplayName}</span> <span class="r">(${u.loserRating})</span></div>
-        <div class="meta">Biggest rating upset &middot; ${u.gap}-point gap &middot; ${formatDate(u.week)}</div>
-      </div>
-      <a href="${u.gameUrl}" target="_blank" rel="noopener noreferrer">Watch game &rarr;</a>
-    </div>`;
-  }
 
   // weekly results, most recent first
   const weeksEl = document.getElementById('sundayWeeks');
@@ -800,6 +912,30 @@ function renderMatchLog(games) {
   draw();
 }
 
+// ---------- Trends: biggest upsets (moved here from Sunday Standings) ----------
+function renderUpsets(games) {
+  const upsets = games
+    .filter(g => g.result !== 'draw' && g.white.rating != null && g.black.rating != null)
+    .map(g => {
+      const winnerSide = g.result === 'white' ? g.white : g.black;
+      const loserSide = g.result === 'white' ? g.black : g.white;
+      return { g, winnerSide, loserSide, gap: (loserSide.rating || 0) - (winnerSide.rating || 0) };
+    })
+    .filter(u => u.gap > 0)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 5);
+
+  document.getElementById('trendsUpsets').innerHTML = upsets.map(u => `
+    <div class="upset-card">
+      <div class="bolt">&#9889;</div>
+      <div class="body">
+        <div class="line"><span class="chip win">${u.winnerSide.displayName}</span> <span class="r">(${u.winnerSide.rating})</span> upset <span class="chip loss">${u.loserSide.displayName}</span> <span class="r">(${u.loserSide.rating})</span></div>
+        <div class="meta">${u.gap}-point gap &middot; ${formatDate(u.g.date)}</div>
+      </div>
+      <a href="${u.g.url}" target="_blank" rel="noopener noreferrer">Watch game &rarr;</a>
+    </div>`).join('') || '<div class="empty-state"><p>No upsets recorded yet.</p></div>';
+}
+
 // ---------- Trends: sweaty-game leaderboard ----------
 function renderSweatyGames(games) {
   const candidates = games.filter(g => g.moveCount >= 2 && g.result !== 'draw' &&
@@ -818,54 +954,107 @@ function renderSweatyGames(games) {
     </div>`).join('') || '<div class="empty-state"><p>Not enough clock data yet.</p></div>';
 }
 
-// ---------- Trends: club-record badges ----------
+// ---------- Trends: openings breakdown (donut + ranked list) ----------
+function renderOpenings(games) {
+  const counts = {};
+  games.forEach(g => { if (g.openingName) counts[g.openingName] = (counts[g.openingName] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, c]) => sum + c, 0);
+  const wrap = document.getElementById('trendsOpenings');
+
+  if (!total) {
+    wrap.innerHTML = '<div class="empty-state"><p>No opening data yet.</p></div>';
+    return;
+  }
+
+  const top = entries.slice(0, 7);
+  const otherCount = entries.slice(7).reduce((sum, [, c]) => sum + c, 0);
+  const slices = otherCount > 0 ? [...top, ['Other openings', otherCount]] : top;
+
+  const listHtml = slices.map((s, i) => {
+    const pct = Math.round((s[1] / total) * 100);
+    const color = s[0] === 'Other openings' ? 'var(--ring-strong)' : TREND_PALETTE[i % TREND_PALETTE.length];
+    return `<div class="openings-row"><span class="sw" style="background:${color}"></span><span class="nm">${s[0]}</span><span class="ct">${s[1]} &middot; ${pct}%</span></div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="openings-donut-wrap" id="openingsDonutWrap"></div><div class="openings-list">${listHtml}</div>`;
+
+  if (typeof d3 !== 'undefined') {
+    const size = 180, r = size / 2, inner = r * 0.62;
+    const arcs = d3.pie().value(d => d[1]).sort(null)(slices);
+    const arcGen = d3.arc().innerRadius(inner).outerRadius(r - 3);
+
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${size} ${size}`).attr('width', size).attr('height', size);
+    svg.append('g').attr('transform', `translate(${r},${r})`)
+      .selectAll('path').data(arcs).join('path')
+      .attr('d', arcGen)
+      .attr('fill', (d, i) => slices[i][0] === 'Other openings' ? 'var(--ring-strong)' : TREND_PALETTE[i % TREND_PALETTE.length])
+      .attr('stroke', 'var(--surface)').attr('stroke-width', 2)
+      .append('title').text(d => `${d.data[0]}: ${d.data[1]}`);
+
+    const donutWrap = document.getElementById('openingsDonutWrap');
+    donutWrap.appendChild(svg.node());
+    const center = document.createElement('div');
+    center.className = 'openings-donut-center';
+    center.innerHTML = `<div class="num">${entries.length}</div><div class="lbl">openings</div>`;
+    donutWrap.appendChild(center);
+  }
+}
+
+// ---------- Trends: club-record badges (top-3 ranked lists) ----------
 function renderTrendsBadges(games) {
   const cards = [];
+  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
 
-  // grudge match: most-played pair
+  // grudge matches: most-played pairs
   const pairCounts = {};
   games.forEach(g => {
     if (g.white.person === g.black.person) return;
     const key = [g.white.person, g.black.person].sort().join('|');
     pairCounts[key] = (pairCounts[key] || 0) + 1;
   });
-  let grudge = null;
-  for (const [key, count] of Object.entries(pairCounts)) if (!grudge || count > grudge.count) grudge = { key, count };
-  if (grudge) {
-    const [p1, p2] = grudge.key.split('|');
-    cards.push(`<div class="badge-card"><div class="b-label">Grudge match</div><div class="b-body">${nameOf(p1)} vs ${nameOf(p2)}</div><div class="b-sub">${grudge.count} games played &mdash; the club's longest-running arena rivalry</div></div>`);
+  const grudges = Object.entries(pairCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  if (grudges.length) {
+    const rows = grudges.map(([key, count], i) => {
+      const [p1, p2] = key.split('|');
+      return rankRow(i, `${nameOf(p1)} vs ${nameOf(p2)}`, `${count} games`);
+    }).join('');
+    cards.push(`<div class="badge-card"><div class="b-label">Grudge matches</div><div class="b-list">${rows}</div></div>`);
   }
 
-  // club favorite opening
-  const openingCounts = {};
-  games.forEach(g => { if (g.openingName) openingCounts[g.openingName] = (openingCounts[g.openingName] || 0) + 1; });
-  const topOpening = Object.entries(openingCounts).sort((a, b) => b[1] - a[1])[0];
-  if (topOpening) {
-    cards.push(`<div class="badge-card"><div class="b-label">Club favorite opening</div><div class="b-body">${topOpening[0]}</div><div class="b-sub">played ${topOpening[1]} times across every arena</div></div>`);
-  }
-
-  // longest game / fastest decisive game
+  // longest games
   const real = games.filter(g => g.moveCount >= 2);
-  const longest = [...real].sort((a, b) => b.moveCount - a.moveCount)[0];
-  const decisive = real.filter(g => g.result !== 'draw');
-  const shortest = [...decisive].sort((a, b) => a.moveCount - b.moveCount)[0];
-  if (longest) cards.push(`<div class="badge-card"><div class="b-label">Longest game</div><div class="b-body">${longest.white.displayName} vs ${longest.black.displayName}</div><div class="b-sub">${longest.moveCount} moves &middot; <a href="${longest.url}" target="_blank" rel="noopener noreferrer">watch &rarr;</a></div></div>`);
-  if (shortest) cards.push(`<div class="badge-card"><div class="b-label">Fastest decisive game</div><div class="b-body">${shortest.white.displayName} vs ${shortest.black.displayName}</div><div class="b-sub">${shortest.moveCount} moves &middot; <a href="${shortest.url}" target="_blank" rel="noopener noreferrer">watch &rarr;</a></div></div>`);
-
-  // time-trouble survivor: won with the least clock left
-  let survivor = null;
-  decisive.forEach(g => {
-    const winnerClock = g.result === 'white' ? g.finalClockWhite : g.finalClockBlack;
-    if (winnerClock == null) return;
-    if (!survivor || winnerClock < survivor.clock) survivor = { game: g, clock: winnerClock };
-  });
-  if (survivor) {
-    const g = survivor.game;
-    const winner = g.result === 'white' ? g.white : g.black;
-    cards.push(`<div class="badge-card"><div class="b-label">Time-trouble survivor</div><div class="b-body">${winner.displayName}</div><div class="b-sub">won with ${survivor.clock.toFixed(1)}s left on the clock &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch &rarr;</a></div></div>`);
+  const longestTop = [...real].sort((a, b) => b.moveCount - a.moveCount).slice(0, 3);
+  if (longestTop.length) {
+    const rows = longestTop.map((g, i) => rankRow(i, `${g.white.displayName} vs ${g.black.displayName}`,
+      `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`)).join('');
+    cards.push(`<div class="badge-card"><div class="b-label">Longest games</div><div class="b-list">${rows}</div></div>`);
   }
 
-  // longest win streak within a single session
+  // fastest decisive games
+  const decisive = real.filter(g => g.result !== 'draw');
+  const shortestTop = [...decisive].sort((a, b) => a.moveCount - b.moveCount).slice(0, 3);
+  if (shortestTop.length) {
+    const rows = shortestTop.map((g, i) => rankRow(i, `${g.white.displayName} vs ${g.black.displayName}`,
+      `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`)).join('');
+    cards.push(`<div class="badge-card"><div class="b-label">Fastest decisive games</div><div class="b-list">${rows}</div></div>`);
+  }
+
+  // time-trouble survivors: won with the least clock left
+  const survivors = decisive
+    .map(g => ({ g, clock: g.result === 'white' ? g.finalClockWhite : g.finalClockBlack }))
+    .filter(x => x.clock != null)
+    .sort((a, b) => a.clock - b.clock)
+    .slice(0, 3);
+  if (survivors.length) {
+    const rows = survivors.map(({ g, clock }, i) => {
+      const winner = g.result === 'white' ? g.white : g.black;
+      return rankRow(i, winner.displayName, `${clock.toFixed(1)}s &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`);
+    }).join('');
+    cards.push(`<div class="badge-card"><div class="b-label">Time-trouble survivors</div><div class="b-list">${rows}</div></div>`);
+  }
+
+  // longest win streaks within a single session (best streak per person)
   const streakMap = {};
   games.forEach(g => {
     [['white', g.white.person], ['black', g.black.person]].forEach(([side, person]) => {
@@ -873,19 +1062,22 @@ function renderTrendsBadges(games) {
       (streakMap[key] ||= []).push({ endTime: g.endTime, win: g.result === side });
     });
   });
-  let bestStreak = null;
+  const bestByPerson = {};
   for (const [key, arr] of Object.entries(streakMap)) {
     arr.sort((a, b) => (a.endTime || 0) - (b.endTime || 0));
     let streak = 0, max = 0;
     arr.forEach(x => { streak = x.win ? streak + 1 : 0; max = Math.max(max, streak); });
-    if (max >= 2 && (!bestStreak || max > bestStreak.max)) {
-      const [tid, person] = key.split('|');
-      bestStreak = { person, tid, max };
-    }
+    if (max < 2) continue;
+    const [tid, person] = key.split('|');
+    if (!bestByPerson[person] || max > bestByPerson[person].max) bestByPerson[person] = { person, tid, max };
   }
-  if (bestStreak) {
-    const tg = games.find(g => g.tournamentId === bestStreak.tid);
-    cards.push(`<div class="badge-card"><div class="b-label">Longest win streak</div><div class="b-body">${nameOf(bestStreak.person)}</div><div class="b-sub">${bestStreak.max} wins in a row &middot; ${tg ? tg.tournamentName + ', ' + formatDate(tg.date) : ''}</div></div>`);
+  const streakTop = Object.values(bestByPerson).sort((a, b) => b.max - a.max).slice(0, 3);
+  if (streakTop.length) {
+    const rows = streakTop.map((s, i) => {
+      const tg = games.find(g => g.tournamentId === s.tid);
+      return rankRow(i, nameOf(s.person), `${s.max} in a row${tg ? ' &middot; ' + formatDate(tg.date) : ''}`);
+    }).join('');
+    cards.push(`<div class="badge-card"><div class="b-label">Longest win streaks</div><div class="b-list">${rows}</div></div>`);
   }
 
   document.getElementById('trendsBadges').innerHTML = cards.join('');
@@ -968,6 +1160,85 @@ function buildRatingChart(games) {
       if (hidden.has(p)) hidden.delete(p); else hidden.add(p);
       chip.classList.toggle('off');
       seriesG.filter(d => d.person === p).style('display', hidden.has(p) ? 'none' : null);
+    });
+    legend.appendChild(chip);
+  });
+}
+
+// ---------- Trends: lifetime rating chart (one point per day, any opponent) ----------
+function buildLifetimeRatingChart(playersObj) {
+  const svg = d3.select('#vizLifetime');
+  const wrap = document.getElementById('trendsLifetimeWrap');
+  const tooltip = document.getElementById('tooltipLifetime');
+  const width = wrap.clientWidth, height = wrap.clientHeight;
+  const margin = { top: 16, right: 20, bottom: 26, left: 42 };
+
+  const people = Object.keys(playersObj).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  const color = d3.scaleOrdinal().domain(people).range(TREND_PALETTE);
+
+  const series = people.map(person => ({
+    person,
+    points: (playersObj[person] || [])
+      .filter(([et, rating]) => et != null && rating != null)
+      .map(([et, rating]) => ({ date: new Date(et * 1000), rating }))
+  })).filter(s => s.points.length);
+
+  const allDates = series.flatMap(s => s.points.map(p => p.date));
+  const allRatings = series.flatMap(s => s.points.map(p => p.rating));
+  if (!allDates.length) {
+    wrap.innerHTML = '<div class="empty-state"><p>No lifetime rating data yet.</p></div>';
+    return;
+  }
+
+  const x = d3.scaleTime().domain(d3.extent(allDates)).range([margin.left, width - margin.right]);
+  const y = d3.scaleLinear()
+    .domain([d3.min(allRatings) - 40, d3.max(allRatings) + 40])
+    .range([height - margin.bottom, margin.top]);
+
+  svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+  svg.append('g').attr('class', 'raxis rgrid').attr('transform', `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
+  svg.append('g').attr('class', 'raxis').attr('transform', `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+
+  const line = d3.line().x(d => x(d.date)).y(d => y(d.rating)).curve(d3.curveMonotoneX);
+
+  const seriesG = svg.append('g').selectAll('g.series').data(series).join('g')
+    .attr('class', 'series').attr('data-person', d => d.person);
+
+  seriesG.append('path').attr('class', 'rline').attr('d', d => line(d.points)).attr('stroke', d => color(d.person));
+
+  function positionTooltip(ev) {
+    const rect = wrap.getBoundingClientRect();
+    tooltip.style.opacity = 1;
+    tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
+    tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
+  }
+
+  seriesG.each(function (s) {
+    d3.select(this).selectAll('circle').data(s.points).join('circle')
+      .attr('class', 'rdot').attr('r', 2).style('stroke-width', 0)
+      .attr('cx', d => x(d.date)).attr('cy', d => y(d.rating))
+      .attr('fill', color(s.person))
+      .on('mousemove', (ev, d) => {
+        tooltip.innerHTML = `<b>${nameOf(s.person)}</b> &middot; ${d.rating}<br><span class="muted">${d.date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>`;
+        positionTooltip(ev);
+      })
+      .on('mouseleave', () => tooltip.style.opacity = 0);
+  });
+
+  const legend = document.getElementById('trendsLifetimeLegend');
+  legend.innerHTML = '';
+  const hidden = new Set();
+  series.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'legend-chip';
+    chip.innerHTML = `<span class="dot" style="background:${color(s.person)}"></span>${nameOf(s.person)}`;
+    chip.addEventListener('click', () => {
+      if (hidden.has(s.person)) hidden.delete(s.person); else hidden.add(s.person);
+      chip.classList.toggle('off');
+      seriesG.filter(d => d.person === s.person).style('display', hidden.has(s.person) ? 'none' : null);
     });
     legend.appendChild(chip);
   });
