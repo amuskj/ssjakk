@@ -736,8 +736,11 @@
   }
   .bm-sq.light { background: #ead9bd; }
   .bm-sq.dark { background: #8a6a49; }
-  .bm-sq.white-piece { color: #fbfbf8; text-shadow: 0 0 2px #17181a, 0 0 3px #17181a, 0 1px 1px #17181a; }
-  .bm-sq.black-piece { color: #17181a; text-shadow: 0 0 1px rgba(255,255,255,0.35); }
+  .bm-sq.white-piece {
+    color: #fbfbf8; -webkit-text-stroke: 1.4px #17181a; paint-order: stroke fill;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+  }
+  .bm-sq.black-piece { color: #17181a; text-shadow: 0 1px 1px rgba(255,255,255,0.25); }
   .bm-sq:not(.selectable) { cursor: default; }
   .bm-sq.selected { box-shadow: inset 0 0 0 3px var(--accent); }
   .bm-sq.legal-target::after {
@@ -1627,10 +1630,14 @@ function renderSpecialEvents(sunday, avatarById) {
 // happened server-side -- this just replays a FEN + the known answer,
 // using chess.js purely to validate clicks and generate the legal-move
 // dots, never to analyze anything itself.
-const BM_GLYPH = {
-  w: { p: '\u2659', n: '\u2658', b: '\u2657', r: '\u2656', q: '\u2655', k: '\u2654' },
-  b: { p: '\u265F', n: '\u265E', b: '\u265D', r: '\u265C', q: '\u265B', k: '\u265A' },
-};
+// Both colors draw from the SAME glyph set (the solid/filled Unicode
+// chess symbols) so white and black pieces are the identical shape,
+// just colored differently -- mixing the "outline" white codepoints
+// (2654-2659) with the "filled" black ones (265A-265F) looked like two
+// different piece sets side by side, since fonts render those two
+// Unicode ranges with genuinely different designs.
+const BM_GLYPH_SHAPE = { p: '\u265F', n: '\u265E', b: '\u265D', r: '\u265C', q: '\u265B', k: '\u265A' };
+const BM_GLYPH = { w: BM_GLYPH_SHAPE, b: BM_GLYPH_SHAPE };
 const BM_SOLVED_KEY = 'ssjakk_solved_puzzles';
 let bmListenersBound = false;
 
