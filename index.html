@@ -440,6 +440,7 @@
   .upset-card a { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .upset-card a:hover { text-decoration: underline; }
   .upset-card .card-spark { flex-shrink: 0; }
+  .upset-card[data-detail-game] { cursor: pointer; }
 
   /* ---------- special events (one-off tournaments, kept out of the Hopen podium) ---------- */
   .special-events-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px; }
@@ -522,7 +523,7 @@
     padding: 16px 18px 0;
   }
   .graph-head h2 { font-family: var(--disp); font-size: 14.5px; margin: 0; }
-  .graph-head .hint { font-size: 11.5px; color: var(--ink-mute); }
+  .graph-head .hint { font-size: 11.5px; color: var(--ink-mute); cursor: help; border-bottom: 1px dotted var(--ink-mute); }
 
   .graph-wrap { position: relative; height: 520px; }
   svg { display: block; width: 100%; height: 100%; cursor: grab; }
@@ -708,6 +709,8 @@
     font-size: 11px; font-weight: 600; color: var(--accent); font-family: var(--sans);
   }
   .b-show-all:hover { background: var(--ring); }
+  .openings-row.clickable { cursor: pointer; border-radius: 6px; margin: 0 -6px; padding: 3px 6px; transition: background 0.12s ease; }
+  .openings-row.clickable:hover { background: var(--surface-2); }
 
   /* ---------- records drill-down modal ---------- */
   .modal-overlay {
@@ -731,6 +734,23 @@
   .modal-list .b-list-row { padding: 6px; border-bottom: 1px solid var(--ring); }
   .modal-list .b-list-row:last-child { border-bottom: none; }
   .modal-loglist { display: flex; flex-direction: column; gap: 6px; }
+  .detail-meta { margin-bottom: 4px; }
+  .detail-players { font-family: var(--disp); font-size: 15px; font-weight: 700; }
+  .detail-sub { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; }
+  .detail-chart-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-mute); margin: 14px 0 4px; }
+  .detail-chart-svg { width: 100%; height: auto; display: block; }
+  .detail-axis-lbl { font-size: 8.5px; fill: var(--ink-mute); font-family: var(--sans); }
+  .detail-gridline { stroke: var(--ring); stroke-width: 1; }
+  .detail-eval-line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+  .detail-clock-white { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+  .detail-clock-black { fill: none; stroke: var(--gold); stroke-width: 1.6; }
+  .detail-legend { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-mute); margin: 8px 0 12px; }
+  .detail-legend .lg-dot { margin-left: 10px; }
+  .detail-legend .lg-dot:first-child { margin-left: 0; }
+  .lg-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; margin-right: 4px; }
+  .lg-dot.white { background: var(--accent); }
+  .lg-dot.black { background: var(--gold); }
+  .detail-note { font-size: 11.5px; color: var(--ink-mute); font-style: italic; margin: 6px 0 12px; }
 
   /* ---------- trends: ranked record lists ---------- */
   .b-list { display: flex; flex-direction: column; gap: 7px; }
@@ -964,7 +984,7 @@
     <div class="graph-card" id="trendsCorrelationCard" style="margin-bottom:28px;">
       <div class="graph-head">
         <h2>Accuracy vs. rating</h2>
-        <span class="hint" id="corrStat"></span>
+        <span class="hint" id="corrStat" title="Every game with a full Stockfish accuracy pass and both players' ratings on record -- not a fixed sample, a rolling window, or a random draw. Grows as more games get analyzed."></span>
       </div>
       <div class="chart-wrap" id="trendsCorrelationWrap">
         <svg id="vizCorrelation"></svg>
@@ -2037,7 +2057,7 @@ function renderUpsets(games) {
     .slice(0, 5);
 
   document.getElementById('trendsUpsets').innerHTML = upsets.map(u => `
-    <div class="upset-card">
+    <div class="upset-card" data-detail-game="${u.g.id}">
       <div class="bolt">&#9889;</div>
       <div class="body">
         <div class="line"><span class="chip win">${u.winnerSide.displayName}</span> <span class="r">(${u.winnerSide.rating})</span> upset <span class="chip loss">${u.loserSide.displayName}</span> <span class="r">(${u.loserSide.rating})</span></div>
@@ -2056,7 +2076,7 @@ function renderSweatyGames(games) {
     .sort((a, b) => Math.min(a.finalClockWhite, a.finalClockBlack) - Math.min(b.finalClockWhite, b.finalClockBlack))
     .slice(0, 6);
   document.getElementById('trendsSweaty').innerHTML = top.map(g => `
-    <div class="upset-card">
+    <div class="upset-card" data-detail-game="${g.id}">
       <div class="bolt">&#128293;</div>
       <div class="body">
         <div class="line">${g.white.displayName} <span class="r">${g.finalClockWhite.toFixed(1)}s left</span> vs ${g.black.displayName} <span class="r">${g.finalClockBlack.toFixed(1)}s left</span></div>
@@ -2100,10 +2120,23 @@ function renderOpenings(games) {
   const otherCount = entries.slice(7).reduce((sum, [, c]) => sum + c, 0);
   const slices = otherCount > 0 ? [...top, ['Other openings', otherCount]] : top;
 
+  const topFamilies = new Set(top.map(s => s[0]));
+  const openingsId = 'op' + (badgeCardSeq++);
+  BADGE_REGISTRY[openingsId] = {
+    title: 'Openings',
+    rows: slices.map(s => ({
+      label: s[0],
+      value: `${s[1]} games`,
+      games: () => s[0] === 'Other openings'
+        ? games.filter(g => { const fam = openingFamily(g.openingName); return fam && !topFamilies.has(fam); })
+        : games.filter(g => openingFamily(g.openingName) === s[0]),
+    })),
+  };
+
   const listHtml = slices.map((s, i) => {
     const pct = Math.round((s[1] / total) * 100);
     const color = s[0] === 'Other openings' ? 'var(--ring-strong)' : TREND_PALETTE[i % TREND_PALETTE.length];
-    return `<div class="openings-row"><span class="sw" style="background:${color}"></span><span class="nm">${s[0]}</span><span class="ct">${s[1]} &middot; ${pct}%</span></div>`;
+    return `<div class="openings-row clickable" data-badge-id="${openingsId}" data-row-idx="${i}"><span class="sw" style="background:${color}"></span><span class="nm">${s[0]}</span><span class="ct">${s[1]} &middot; ${pct}%</span></div>`;
   }).join('');
 
   wrap.innerHTML = `<div class="openings-donut-wrap" id="openingsDonutWrap"></div><div class="openings-list">${listHtml}</div>`;
@@ -2128,6 +2161,81 @@ function renderOpenings(games) {
     center.innerHTML = `<div class="num">${entries.length}</div><div class="lbl">openings</div>`;
     donutWrap.appendChild(center);
   }
+}
+
+// ---------- Trends: single-game detail (eval + clock-time charts) ----------
+// Clicking a Biggest Upset or Sweaty Game card opens a bigger view of that
+// one game: the same eval curve as the card's sparkline, drawn larger with
+// an axis, plus (once a game has been re-analyzed since clock curves were
+// added) both players' time-left over the game, so a time-trouble scramble
+// shows up as a visual match to the eval swing, not just a final-clock number.
+function parseTimeControlSeconds(tc) {
+  if (!tc) return null;
+  const m = String(tc).match(/^(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function evalDetailSvg(curve) {
+  if (!curve || curve.length < 2) return '<div class="empty-state"><p>No move-by-move analysis for this game yet.</p></div>';
+  const w = 520, h = 120, padL = 30, padR = 8, padT = 8, padB = 8;
+  const cap = 500;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const step = curve.length > 1 ? innerW / (curve.length - 1) : innerW;
+  const yOf = v => padT + innerH / 2 - (Math.max(-cap, Math.min(cap, v)) / cap) * (innerH / 2);
+  const pts = curve.map((v, i) => `${(padL + i * step).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+  const ticks = [cap, 0, -cap].map(v => {
+    const y = yOf(v);
+    const label = v === 0 ? '0' : (v > 0 ? '+' : '') + (v / 100).toFixed(0);
+    return `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" class="detail-axis-lbl">${label}</text>` +
+      `<line x1="${padL}" x2="${w - padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" class="detail-gridline"></line>`;
+  }).join('');
+  return `<svg class="detail-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${ticks}<polyline class="detail-eval-line" points="${pts}"></polyline></svg>`;
+}
+
+function clockDetailSvg(whiteCurve, blackCurve, tcSeconds) {
+  if (!whiteCurve || !whiteCurve.length) return '';
+  const w = 520, h = 100, padL = 34, padR = 8, padT = 8, padB = 8;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const maxVal = Math.max(tcSeconds || 0, ...whiteCurve, ...(blackCurve || []), 1);
+  const lineFor = (arr, cls) => {
+    if (!arr || !arr.length) return '';
+    const step = arr.length > 1 ? innerW / (arr.length - 1) : innerW;
+    const pts = arr.map((v, i) => `${(padL + i * step).toFixed(1)},${(padT + innerH - (Math.max(0, v) / maxVal) * innerH).toFixed(1)}`).join(' ');
+    return `<polyline class="${cls}" points="${pts}"></polyline>`;
+  };
+  const fmt = s => { const m = Math.floor(s / 60); const sec = Math.round(s % 60); return `${m}:${String(sec).padStart(2, '0')}`; };
+  const ticks = [maxVal, maxVal / 2, 0].map(v => {
+    const y = padT + innerH - (v / maxVal) * innerH;
+    return `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" class="detail-axis-lbl">${fmt(v)}</text>` +
+      `<line x1="${padL}" x2="${w - padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" class="detail-gridline"></line>`;
+  }).join('');
+  return `<svg class="detail-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${ticks}${lineFor(whiteCurve, 'detail-clock-white')}${lineFor(blackCurve, 'detail-clock-black')}</svg>`;
+}
+
+function gameDetailModalHtml(g) {
+  const a = g.analysis;
+  const evalHtml = a && a.evalCurve ? evalDetailSvg(a.evalCurve) : '<div class="empty-state"><p>No move-by-move analysis for this game yet.</p></div>';
+  const hasClock = a && a.clockCurveWhite && a.clockCurveWhite.length;
+  const clockHtml = hasClock
+    ? clockDetailSvg(a.clockCurveWhite, a.clockCurveBlack, parseTimeControlSeconds(g.timeControl))
+    : '<p class="detail-note">Clock-time curve isn\'t available for this game yet -- it\'ll appear once a future refresh re-analyzes it.</p>';
+  const cls = side => g.result === side ? 'win' : (g.result === 'draw' ? '' : 'loss');
+  return `<div class="detail-meta">
+      <div class="detail-players"><span class="chip ${cls('white')}">${g.white.displayName}</span> vs <span class="chip ${cls('black')}">${g.black.displayName}</span></div>
+      <div class="detail-sub">${g.openingName || 'Unknown opening'} &middot; ${g.moveCount || '?'} moves &middot; ${formatDate(g.date)}</div>
+    </div>
+    <div class="detail-chart-label">Evaluation</div>
+    ${evalHtml}
+    <div class="detail-chart-label">Clock &middot; time left</div>
+    ${clockHtml}
+    <div class="detail-legend"><span class="lg-dot white"></span>${g.white.displayName}<span class="lg-dot black"></span>${g.black.displayName}</div>
+    <a class="bm-btn ghost" href="${g.url}" target="_blank" rel="noopener noreferrer">Watch full game &#8599;</a>`;
+}
+
+function openGameDetailModal(gameId) {
+  const g = (GAMES || []).find(x => x.id === gameId);
+  if (!g) return;
+  showRecordsModal(`${g.white.displayName} vs ${g.black.displayName}`, gameDetailModalHtml(g));
 }
 
 // ---------- Trends: shared "records" modal -- full lists + game drill-downs ----------
@@ -2188,6 +2296,12 @@ document.addEventListener('click', ev => {
   if (showAllBtn) { openFullListModal(showAllBtn.dataset.badgeId); return; }
   const clickableRow = ev.target.closest('.b-list-row.clickable[data-badge-id]');
   if (clickableRow) { openRowGamesModal(clickableRow.dataset.badgeId, +clickableRow.dataset.rowIdx); return; }
+  const openingRow = ev.target.closest('.openings-row.clickable[data-badge-id]');
+  if (openingRow) { openRowGamesModal(openingRow.dataset.badgeId, +openingRow.dataset.rowIdx); return; }
+  if (!ev.target.closest('a')) {
+    const detailCard = ev.target.closest('.upset-card[data-detail-game]');
+    if (detailCard) { openGameDetailModal(detailCard.dataset.detailGame); return; }
+  }
   if (ev.target.id === 'recordsModalClose' || ev.target.id === 'recordsModalOverlay') closeRecordsModal();
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRecordsModal(); });

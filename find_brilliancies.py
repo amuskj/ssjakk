@@ -61,6 +61,7 @@ biggest lever on how long a full run takes.
 
 import json
 import os
+import re
 import shutil
 import sys
 
@@ -75,6 +76,25 @@ GAMES_FILE = "games.json"
 PGN_CACHE_FILE = ".game_pgns_cache.json"
 OUT_FILE = "brilliancies.json"
 ANALYSIS_OUT_FILE = "game_analysis.json"
+
+# Same pattern build_games.py uses to pull each side's final clock reading --
+# reused here to keep a clock reading for EVERY ply, not just the last one,
+# so the front end can plot time-left alongside the eval curve. The PGN's
+# clock comments appear in ply order (White's move, White's clock, Black's
+# move, Black's clock, ...), so a straight findall() is already ply-aligned
+# with mainline_moves() -- no need to touch python-chess's node objects.
+CLK_RE = re.compile(r"\{\[%clk\s+([0-9:.]+)\]\}")
+
+
+def parse_clk(s):
+    if not s:
+        return None
+    parts = [float(x) for x in s.split(":")]
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    return None
 
 PLY_TIME_LIMIT = 0.25       # seconds per position -- the main runtime lever
 SKIP_FIRST_PLIES = 10       # brilliancies don't happen in opening theory
@@ -158,6 +178,7 @@ def analyze_game(engine, game_meta, pgn_text):
     moves = list(game.mainline_moves())  # materialized once, so a candidate
                                           # sacrifice can look ahead at what
                                           # actually happened next in the game
+    clocks = [parse_clk(c) for c in CLK_RE.findall(pgn_text)]
     ply = 0
     sides = {
         chess.WHITE: {"losses": [], "best": 0, "good": 0, "inaccuracy": 0, "mistake": 0, "blunder": 0},
@@ -250,6 +271,13 @@ def analyze_game(engine, game_meta, pgn_text):
             "black": summarize(chess.BLACK),
             "evalCurve": eval_curve,
         }
+        # Clock comments are usually one-per-ply, but a scratch/casual PGN
+        # missing a trailing clock or two shouldn't break this -- clip to
+        # whatever's actually there rather than assuming full coverage.
+        if any(c is not None for c in clocks):
+            clock_curve = clocks[:len(moves)]
+            analysis["clockCurveWhite"] = clock_curve[0::2]
+            analysis["clockCurveBlack"] = clock_curve[1::2]
     return found, analysis
 
 
