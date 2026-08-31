@@ -32,6 +32,19 @@ sides -- fixing that roughly doubled how much game we can afford to
 analyze per second of engine time, which is what made full-game (not just
 post-opening) analysis affordable.
 
+A "sacrifice" candidate must actually stay a sacrifice, not just look like
+one for a single move. The original brilliancy detector only checked
+whether one move gave up more value than it captured on a square the
+opponent attacks -- but that's also true of the *first half* of a
+completely ordinary trade (e.g. bishop takes pawn, knight takes bishop,
+knight retakes knight -- textbook opening theory, not a sacrifice). That
+bug flagged 192 "brilliancies" across the club's games, of which 186 were
+recaptured back to even by the mover's very next move and only 2 held up
+under scrutiny. The fix: after a candidate passes the existing eval-based
+checks, replay the game's own following moves and require the material
+deficit to actually persist for a real stretch of play (SAC_LOOKAHEAD_PLIES),
+not evaporate the moment the natural recapture happens.
+
 Incremental by design: games already analyzed (tracked by id, right in
 brilliancies.json) are skipped on every later run, so the GitHub Actions
 workflow can call this after every refresh without redoing work -- only
@@ -69,6 +82,8 @@ SWING_TOLERANCE = 40        # cp: how close to "assumed best play" counts as obj
 MAX_EVAL_BEFORE = 500       # cp: skip already-crushing positions (not a turning point)
 MIN_EVAL_AFTER = -100       # cp: the sac must still hold up, not just fail
 MIN_MATERIAL_RISKED = 2     # at least a minor piece -- no pawn pokes
+SAC_LOOKAHEAD_PLIES = 16    # how far into the ACTUAL game to check the material stays down
+SAC_RECOVERY_MARGIN = 1     # points: within this of even, within the window above, means "just a trade"
 
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
@@ -84,6 +99,31 @@ def classify_loss(loss):
         if loss < threshold:
             return label
     return "blunder"
+
+
+def material_diff(board, color):
+    """Total piece value for `color` minus the opponent's, in pawns. Used
+    only to check whether a candidate sacrifice's material actually stays
+    given up -- not related to the engine's own positional evaluation."""
+    diff = 0
+    for piece_type, value in PIECE_VALUES.items():
+        diff += value * len(board.pieces(piece_type, color))
+        diff -= value * len(board.pieces(piece_type, not color))
+    return diff
+
+
+def material_recovers(board_after_move, moves, idx, mover_color, diff_before):
+    """True if the material given up on this move comes back to roughly
+    even within the game's own next several moves -- the signature of an
+    ordinary trade (give a piece, get one back) rather than a genuine,
+    lasting sacrifice. `board_after_move` already has `moves[idx]` applied;
+    it's copied here so the caller's board keeps streaming forward untouched."""
+    lookahead = board_after_move.copy()
+    for j in range(idx + 1, min(idx + 1 + SAC_LOOKAHEAD_PLIES, len(moves))):
+        lookahead.push(moves[j])
+        if material_diff(lookahead, mover_color) >= diff_before - SAC_RECOVERY_MARGIN:
+            return True
+    return False
 
 
 def person_for(username):
@@ -108,6 +148,9 @@ def analyze_game(engine, game_meta, pgn_text):
         return found, None
 
     board = game.board()
+    moves = list(game.mainline_moves())  # materialized once, so a candidate
+                                          # sacrifice can look ahead at what
+                                          # actually happened next in the game
     ply = 0
     sides = {
         chess.WHITE: {"losses": [], "best": 0, "good": 0, "inaccuracy": 0, "mistake": 0, "blunder": 0},
@@ -116,7 +159,7 @@ def analyze_game(engine, game_meta, pgn_text):
     eval_curve = []  # eval after each ply, from White's POV -- the swing chart
     cp_before = None  # position eval, from the mover-to-move's POV; reused from the previous ply's result
 
-    for move in game.mainline_moves():
+    for idx, move in enumerate(moves):
         ply += 1
         mover_color = board.turn
 
@@ -130,6 +173,7 @@ def analyze_game(engine, game_meta, pgn_text):
         moved_piece = board.piece_at(move.from_square)
         captured_piece = board.piece_at(move.to_square)
         san = board.san(move)
+        diff_before = material_diff(board, mover_color)  # material balance BEFORE this move
         board.push(move)
 
         info_after = engine.analyse(board, chess.engine.Limit(time=PLY_TIME_LIMIT))
@@ -153,7 +197,8 @@ def analyze_game(engine, game_meta, pgn_text):
             if (is_sac
                     and cp_after_mover >= cp_before - SWING_TOLERANCE
                     and abs(cp_before) < MAX_EVAL_BEFORE
-                    and cp_after_mover > MIN_EVAL_AFTER):
+                    and cp_after_mover > MIN_EVAL_AFTER
+                    and not material_recovers(board, moves, idx, mover_color, diff_before)):
                 white_person = person_for(game_meta["whiteUsername"])
                 black_person = person_for(game_meta["blackUsername"])
                 mover_person = white_person if mover_color == chess.WHITE else black_person
