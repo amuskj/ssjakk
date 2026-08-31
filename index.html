@@ -2891,12 +2891,127 @@ function buildRatingChart(gamesRaw, ratingsRaw) {
     });
   }
 
+  // Resample a series to N evenly time-spaced points across its own date
+  // range, so switching class always compares point[i] to point[i] --
+  // that correspondence is what makes a smooth morph possible instead of
+  // a meaningless cross-fade between two unrelated shapes. Only used as a
+  // transient stand-in during the ~600ms transition; the moment it settles,
+  // redraw() takes back over with the real per-game points.
+  const MORPH_SAMPLES = 40;
+  function resampleSeries(points, n) {
+    if (points.length <= 1) {
+      const p = points[0];
+      return Array.from({ length: n }, () => ({ date: new Date(p.date), rating: p.rating }));
+    }
+    const t0 = points[0].date.getTime(), t1 = points[points.length - 1].date.getTime();
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const target = t0 + (t1 - t0) * (i / (n - 1));
+      let lo = 0; while (lo < points.length - 1 && points[lo + 1].date.getTime() < target) lo++;
+      const a = points[lo], b = points[Math.min(lo + 1, points.length - 1)];
+      const span = b.date.getTime() - a.date.getTime();
+      const frac = span > 0 ? (target - a.date.getTime()) / span : 0;
+      out.push({ date: new Date(target), rating: a.rating + (b.rating - a.rating) * frac });
+    }
+    return out;
+  }
+
+  let morphing = false;
+  function switchClass(newCls) {
+    if (!classes.includes(newCls) || newCls === state.cls || morphing) return;
+    const cutoff = cutoffDate(state.range);
+
+    // Arena overlay is real-dated and blitz-only; rather than fake-morph a
+    // layer that's about precise per-day chess.com vs. Hopen comparison,
+    // just cut straight to the accurate redraw when it's in play.
+    const oldRaw = buildLifetimeSeries(state.cls, cutoff);
+    const newRaw = buildLifetimeSeries(newCls, cutoff);
+    const oldByPerson = Object.fromEntries(oldRaw.map(s => [s.person, s]));
+    const newByPerson = Object.fromEntries(newRaw.map(s => [s.person, s]));
+    const morphable = [...new Set([...oldRaw.map(s => s.person), ...newRaw.map(s => s.person)])]
+      .filter(p => !hidden.has(p));
+
+    if (!morphable.length || state.arena) {
+      state.cls = newCls; savePref('class', state.cls); redraw();
+      return;
+    }
+
+    morphing = true;
+    classTabsEl.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.cls === newCls));
+
+    const width = wrap.clientWidth, height = wrap.clientHeight;
+    const margin = { top: 16, right: 20, bottom: 26, left: 42 };
+    const morphColor = d3.scaleOrdinal()
+      .domain(morphable.slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b))))
+      .range(TREND_PALETTE);
+
+    const enterExit = {};
+    const sampled = morphable.map(person => {
+      const op = oldByPerson[person], np = newByPerson[person];
+      enterExit[person] = op && np ? 'both' : op ? 'exit' : 'enter';
+      const oldPts = op ? resampleSeries(op.points, MORPH_SAMPLES) : null;
+      const newPts = np ? resampleSeries(np.points, MORPH_SAMPLES) : null;
+      return {
+        person,
+        old: oldPts || newPts.map(p => ({ date: new Date(p.date), rating: p.rating })),
+        new: newPts || oldPts.map(p => ({ date: new Date(p.date), rating: p.rating })),
+      };
+    });
+
+    const oldDates = sampled.flatMap(s => s.old.map(p => p.date));
+    const oldRatings = sampled.flatMap(s => s.old.map(p => p.rating));
+    const newDates = sampled.flatMap(s => s.new.map(p => p.date));
+    const newRatings = sampled.flatMap(s => s.new.map(p => p.rating));
+    const [xo0, xo1] = d3.extent(oldDates);
+    const [xn0, xn1] = d3.extent(newDates);
+    const yOldDomain = [d3.min(oldRatings) - 40, d3.max(oldRatings) + 40];
+    const yNewDomain = [d3.min(newRatings) - 40, d3.max(newRatings) + 40];
+    const interpX0 = d3.interpolateDate(xo0, xn0);
+    const interpX1 = d3.interpolateDate(xo1, xn1);
+    const interpY = d3.interpolate(yOldDomain, yNewDomain);
+
+    const x = d3.scaleTime().range([margin.left, width - margin.right]);
+    const y = d3.scaleLinear().range([height - margin.bottom, margin.top]);
+    const line = d3.line().x(d => x(d.date)).y(d => y(d.rating)).curve(d3.curveMonotoneX);
+
+    svg.selectAll('*').remove();
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
+    const gGrid = svg.append('g').attr('class', 'raxis rgrid');
+    const gAxisX = svg.append('g').attr('class', 'raxis');
+    const gLines = svg.append('g');
+
+    const paths = gLines.selectAll('path').data(sampled, d => d.person).join('path')
+      .attr('class', 'rline').attr('stroke', d => morphColor(d.person))
+      .attr('d', d => line(d.old))
+      .attr('opacity', d => enterExit[d.person] === 'enter' ? 0 : 1);
+
+    const t = svg.transition().duration(600).ease(d3.easeCubicInOut);
+    t.tween('morph', () => t2 => {
+      x.domain([interpX0(t2), interpX1(t2)]);
+      y.domain(interpY(t2));
+      gGrid.attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
+      gAxisX.attr('transform', `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+      paths
+        .attr('d', d => line(d.old.map((op, i) => {
+          const np = d.new[i];
+          return { date: new Date(op.date.getTime() + (np.date.getTime() - op.date.getTime()) * t2), rating: op.rating + (np.rating - op.rating) * t2 };
+        })))
+        .attr('opacity', d => enterExit[d.person] === 'enter' ? t2 : enterExit[d.person] === 'exit' ? 1 - t2 : 1);
+    });
+    t.on('end', () => {
+      morphing = false;
+      state.cls = newCls;
+      savePref('class', state.cls);
+      redraw();
+    });
+  }
+
   classTabsEl.addEventListener('click', ev => {
     const btn = ev.target.closest('.seg-btn[data-cls]');
     if (!btn) return;
-    state.cls = btn.dataset.cls;
-    savePref('class', state.cls);
-    redraw();
+    switchClass(btn.dataset.cls);
   });
   rangeTabsEl.addEventListener('click', ev => {
     const btn = ev.target.closest('.seg-btn[data-range]');
