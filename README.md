@@ -117,8 +117,9 @@ want to wait for the 15-minute cron tick.
 
 After every refresh that finds a new week, `post_recap.py` posts the
 podium and that week's auto-flagged storylines (biggest upset, biggest
-rating gain, hottest streak, new season leader) to a Discord channel. To
-turn it on:
+rating gain, hottest streak, new season leader) to a Discord channel --
+plus a shout-out for the week's best Brilliant Moves find, if
+`find_brilliancies.py` turned one up in that week's games. To turn it on:
 
 1. In Discord: the target channel's settings -> Integrations -> Webhooks
    -> New Webhook -> copy its URL.

@@ -5,7 +5,8 @@ Posts an automatic weekly recap to the club's Discord channel.
 Reads sunday.json (backfill_sunday.py must run first) and, if there's a
 new week since the last time this posted, sends a message with that
 week's podium plus the auto-flagged storylines (biggest upset, biggest
-rating gain, hottest streak, new season leader).
+rating gain, hottest streak, new season leader) and, if find_brilliancies.py
+found one in this week's games, a shout-out for the week's brilliant move.
 
 Needs a DISCORD_WEBHOOK_URL environment variable (set as a repo secret in
 the GitHub Actions workflow -- see README's one-time setup). If it isn't
@@ -45,6 +46,27 @@ def rank_icon(i):
     return ["\U0001F947", "\U0001F948", "\U0001F949"][i] if i < 3 else f"#{i + 1}"
 
 
+def load_week_brilliancies(date):
+    """Brilliancies find_brilliancies.py found in games played on this date."""
+    if not os.path.exists("brilliancies.json"):
+        return []
+    with open("brilliancies.json") as f:
+        data = json.load(f)
+    return [b for b in data.get("brilliancies", []) if b.get("date") == date]
+
+
+def material_label(risked):
+    if risked is None:
+        return "piece"
+    if risked >= 9:
+        return "queen"
+    if risked >= 5:
+        return "rook"
+    if risked >= 3:
+        return "minor piece"
+    return "pawn"
+
+
 def build_message(sunday):
     storylines = sunday.get("storylines")
     weeks = sunday.get("weeks", [])
@@ -69,6 +91,16 @@ def build_message(sunday):
         if upset.get("gameUrl"):
             line += f" [Watch]({upset['gameUrl']})"
         headlines.append(line)
+    week_brilliancies = load_week_brilliancies(latest.get("date"))
+    if week_brilliancies:
+        best = max(week_brilliancies, key=lambda b: b.get("materialRisked") or 0)
+        extra = f" (plus {len(week_brilliancies) - 1} more this week)" if len(week_brilliancies) > 1 else ""
+        headlines.append(
+            f"\u265E **Brilliant move spotted:** {best['displayName']} sacrificed a "
+            f"{material_label(best.get('materialRisked'))} against {best['opponentDisplayName']} with "
+            f"**{best['correctSan']}**{extra} — try to spot it yourself in Brilliant Moves on the site, "
+            f"or [watch the game]({best['gameUrl']})."
+        )
     gain = storylines.get("ratingGain")
     if gain:
         label = f" {gain['timeClass'].capitalize()}" if gain.get("timeClass") else ""
