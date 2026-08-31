@@ -666,8 +666,14 @@
   .rdot.faded { opacity: 0.28; }
   .rline.arena-line { stroke-width: 3.25px; }
   .rdot.arena-dot { stroke-width: 2px; stroke: var(--surface); }
+  .hover-overlay { cursor: crosshair; }
+  .hover-rule { stroke: var(--ink-mute); stroke-width: 1px; stroke-dasharray: 3,3; pointer-events: none; }
+  .hover-dot { stroke: var(--surface); stroke-width: 1.6px; pointer-events: none; }
+  .tt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: 4px; vertical-align: middle; }
   .corr-dot { fill: var(--accent); fill-opacity: 0.6; stroke: var(--surface); stroke-width: 1px; cursor: pointer; }
   .corr-dot-hint { fill: var(--ink-mute); }
+  .corr-cross-line { stroke: var(--ink-mute); stroke-width: 1px; stroke-dasharray: 2,2; pointer-events: none; }
+  .corr-cross-lbl { font-size: 10px; font-weight: 700; fill: var(--ink); font-family: var(--sans); pointer-events: none; }
   .corr-dot:hover { fill-opacity: 0.9; }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto; margin-bottom: 28px; }
   .log-row {
@@ -2546,6 +2552,15 @@ function buildCorrelationChart(gameAnalysisData, games) {
     .attr('y1', y(0)).attr('y2', y(0))
     .attr('stroke', 'var(--ring-strong)').attr('stroke-dasharray', '3,3');
 
+  // Stippled crosshair to both axes, OWID-scatter-style -- shows exactly
+  // which rating-gap and accuracy-gap value a hovered dot sits at, not just
+  // its raw numbers in the tooltip off to the side.
+  const crosshair = svg.append('g').attr('class', 'corr-crosshair').style('display', 'none');
+  const cxLineV = crosshair.append('line').attr('class', 'corr-cross-line');
+  const cxLineH = crosshair.append('line').attr('class', 'corr-cross-line');
+  const cxLabelX = crosshair.append('text').attr('class', 'corr-cross-lbl').attr('text-anchor', 'middle');
+  const cxLabelY = crosshair.append('text').attr('class', 'corr-cross-lbl').attr('text-anchor', 'end');
+
   svg.append('g').selectAll('circle').data(points).join('circle')
     .attr('class', 'corr-dot')
     .attr('cx', d => x(d.ratingGap)).attr('cy', d => y(d.accuracyGap)).attr('r', 4.5)
@@ -2560,8 +2575,15 @@ function buildCorrelationChart(gameAnalysisData, games) {
       tooltip.style.opacity = 1;
       tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
       tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
+
+      const px = x(d.ratingGap), py = y(d.accuracyGap);
+      crosshair.style('display', null);
+      cxLineV.attr('x1', px).attr('x2', px).attr('y1', py).attr('y2', height - margin.bottom);
+      cxLineH.attr('x1', margin.left).attr('x2', px).attr('y1', py).attr('y2', py);
+      cxLabelX.attr('x', px).attr('y', height - margin.bottom + 14).text(d.ratingGap);
+      cxLabelY.attr('x', margin.left - 6).attr('y', py + 3).text(`${d.accuracyGap >= 0 ? '+' : ''}${d.accuracyGap.toFixed(1)}`);
     })
-    .on('mouseleave', () => tooltip.style.opacity = 0)
+    .on('mouseleave', () => { tooltip.style.opacity = 0; crosshair.style('display', 'none'); })
     .on('click', (ev, d) => window.open(d.g.url, '_blank', 'noopener'));
 }
 
@@ -2813,6 +2835,74 @@ function buildRatingChart(gamesRaw, ratingsRaw) {
           .on('click', () => {}); // no single game url once averaged -- click does nothing
       });
     }
+
+    // Sweep-to-nearest-point hover: move anywhere along the x-axis and the
+    // nearest dot on every visible line lights up, instead of needing to
+    // land a cursor on a 2px circle. Each series keeps its own irregular
+    // dates (players don't all play on the same days), so this snaps each
+    // series independently to whichever of its own points is closest to
+    // the cursor's date, then draws the guide line through whichever of
+    // those hits actually ended up nearest the cursor in pixels.
+    const bisectDate = d3.bisector(d => d.date).left;
+    function nearestPoint(points, targetDate) {
+      if (!points.length) return null;
+      const i = bisectDate(points, targetDate, 1);
+      const a = points[i - 1], b = points[i];
+      if (!a) return b;
+      if (!b) return a;
+      return (targetDate - a.date) > (b.date - targetDate) ? b : a;
+    }
+    function hoverSeriesList() {
+      const list = [];
+      lifetimeSeries.forEach(s => { if (!hidden.has(s.person) && s.points.length) list.push({ person: s.person, points: s.points, label: CLASS_LABELS[state.cls] }); });
+      if (state.arena) arenaSeries.forEach(s => { if (!hidden.has(s.person) && s.points.length) list.push({ person: s.person, points: s.points, label: 'Hopen Arena' }); });
+      return list;
+    }
+
+    const hoverLayer = svg.append('g').attr('class', 'hover-layer').style('display', 'none');
+    const hoverRule = hoverLayer.append('line').attr('class', 'hover-rule')
+      .attr('y1', margin.top).attr('y2', height - margin.bottom);
+    const hoverDots = hoverLayer.append('g');
+
+    svg.append('rect').attr('class', 'hover-overlay')
+      .attr('x', margin.left).attr('y', margin.top)
+      .attr('width', Math.max(0, width - margin.left - margin.right))
+      .attr('height', Math.max(0, height - margin.top - margin.bottom))
+      .style('fill', 'transparent').style('pointer-events', 'all')
+      .on('mousemove', (ev) => {
+        const [mx] = d3.pointer(ev, svg.node());
+        const targetDate = x.invert(mx);
+        // A series whose nearest point is many months away from the cursor
+        // (it simply has no data near this date -- e.g. hasn't started
+        // playing yet) shouldn't be dragged into the tooltip as if that
+        // point were "close" just because it's the closest thing available.
+        const maxGapMs = (x.domain()[1] - x.domain()[0]) * 0.05;
+        const series = hoverSeriesList();
+        const hits = series.map(s => ({ ...s, pt: nearestPoint(s.points, targetDate) }))
+          .filter(h => h.pt && Math.abs(h.pt.date - targetDate) <= maxGapMs);
+        if (!hits.length) { hoverLayer.style('display', 'none'); tooltip.style.opacity = 0; return; }
+
+        const closest = hits.reduce((a, b) => Math.abs(x(a.pt.date) - mx) < Math.abs(x(b.pt.date) - mx) ? a : b);
+        hoverLayer.style('display', null);
+        hoverRule.attr('x1', x(closest.pt.date)).attr('x2', x(closest.pt.date));
+
+        hoverDots.selectAll('circle').data(hits, h => h.person + h.label).join('circle')
+          .attr('class', 'hover-dot')
+          .attr('r', 4.5)
+          .attr('cx', h => x(h.pt.date)).attr('cy', h => y(h.pt.rating))
+          .attr('fill', h => color(h.person));
+
+        tooltip.innerHTML = hits
+          .sort((a, b) => b.pt.rating - a.pt.rating)
+          .map(h => `<span class="tt-dot" style="background:${color(h.person)}"></span><b>${nameOf(h.person)}</b> &middot; ${h.pt.rating}`)
+          .join('<br>') +
+          `<br><span class="muted">${closest.pt.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+        positionTooltip(ev);
+      })
+      .on('mouseleave', () => {
+        hoverLayer.style('display', 'none');
+        tooltip.style.opacity = 0;
+      });
 
     legend.innerHTML = '';
     allPeople.forEach(p => {
