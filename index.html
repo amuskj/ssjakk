@@ -123,86 +123,64 @@
 
   .shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 60px; }
 
-  /* Header takes its color/type cues from the club's own "Søndagssjakk"
-     poster's calmer half — fjord blues instead of the sunset gold, with a
-     faint seven-peak skyline nodding to De Syv Søstre behind the wordmark —
-     rather than reproducing the poster art itself. */
+  /* Header carries its identity through type alone -- a bold wordmark and
+     a small glyph, no crest badge or skyline illustration behind it -- and
+     a single hairline rule is the only separator between it and the tabs. */
   .topbar {
-    position: relative;
-    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid var(--accent);
+    margin-bottom: 30px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--ring-strong);
   }
-  .topbar-peaks {
-    position: absolute;
-    left: 0; right: 0; bottom: 4px;
-    width: 100%; height: 54px;
-    color: var(--accent);
-    opacity: 0.55;
-    pointer-events: none;
-  }
-  .topbar-peaks path {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .brand, .theme-toggle { position: relative; z-index: 1; }
-  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand { display: flex; align-items: baseline; gap: 10px; cursor: default; }
   .brand .crest {
-    width: 40px; height: 40px;
-    border-radius: 999px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    font-size: 20px;
+    font-size: 19px;
     line-height: 1;
     color: var(--accent);
-    background: var(--accent-wash);
-    border: 2px solid var(--accent);
   }
   .brand h1 {
+    display: inline;
     font-family: var(--disp);
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 700;
     margin: 0;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    background: linear-gradient(180deg, var(--accent), var(--accent-deep));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    letter-spacing: 0.01em;
+    color: var(--ink);
   }
   .brand .sub {
     display: inline-block;
-    margin-top: 4px;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    margin-left: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--accent) 65%, var(--ink-dim));
-    background: var(--accent-wash);
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--ring));
-    padding: 3px 9px;
-    border-radius: 999px;
+    color: var(--ink-mute);
   }
 
-  .theme-toggle {
-    width: 38px; height: 38px;
+  /* A literal lever, not an icon button: a small track + sliding thumb. */
+  .theme-switch {
+    width: 40px; height: 22px;
     border-radius: 999px;
-    border: 2px solid var(--accent);
-    background: var(--accent-wash);
-    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--ring-strong);
+    background: var(--surface-2);
+    position: relative;
     cursor: pointer;
-    color: var(--accent);
-    font-size: 15px;
+    padding: 0;
+    flex-shrink: 0;
   }
-  .theme-toggle:hover { border-color: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+  .theme-switch-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 999px;
+    background: var(--ink-mute);
+    transition: transform 0.18s ease, background 0.18s ease;
+  }
+  .theme-switch.is-dark { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 40%, var(--ring)); }
+  .theme-switch.is-dark .theme-switch-thumb { transform: translateX(18px); background: var(--accent); }
 
   .tabs {
     display: inline-flex;
@@ -223,7 +201,7 @@
     border-radius: 8px;
     cursor: pointer;
   }
-  .tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab.active { background: var(--surface); color: var(--ink); }
 
   .panel { display: none; }
   .panel.active { display: block; }
@@ -242,40 +220,26 @@
   }
 
   .podium-card {
-    background: var(--surface);
-    border: 1px solid var(--ring);
-    border-radius: 16px;
-    padding: 18px 18px 16px;
+    position: relative;
+    border-bottom: 1px solid var(--ring);
+    padding: 12px 2px 16px;
     display: flex;
     align-items: center;
     gap: 14px;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .podium-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
   .podium-card.rank-1 {
     grid-area: first;
-    border-color: color-mix(in srgb, var(--gold) 45%, var(--ring));
-    background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 7%, var(--surface)), var(--surface) 65%);
     flex-direction: column;
     text-align: center;
-    padding: 24px 20px 22px;
+    padding: 8px 2px 20px;
     gap: 8px;
+    border-bottom: 1px solid var(--ring-strong);
   }
-  .podium-card.rank-1::after {
-    content: '\265B';
-    position: absolute;
-    right: -14px; bottom: -26px;
-    font-size: 108px;
-    line-height: 1;
-    color: var(--gold);
-    opacity: 0.07;
-    pointer-events: none;
+  .podium-card.rank-2 { grid-area: second; }
+  .podium-card.rank-3 { grid-area: third; }
+  @media (min-width: 701px) {
+    .podium-card.rank-2, .podium-card.rank-3 { border-bottom: none; }
   }
-  .podium-card.rank-2 { grid-area: second; border-color: color-mix(in srgb, var(--silver) 40%, var(--ring)); }
-  .podium-card.rank-3 { grid-area: third; border-color: color-mix(in srgb, var(--bronze) 40%, var(--ring)); }
 
   .rank-badge {
     position: absolute;
@@ -325,12 +289,11 @@
     font-family: var(--sans); font-size: 12.5px; font-weight: 600;
     padding: 7px 14px; border-radius: 7px; cursor: pointer;
   }
-  .mode-toggle .mode-btn.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .mode-toggle .mode-btn.active { background: var(--surface); color: var(--ink); }
 
   /* ---------- Sunday: full standings list (all players, active mode) ---------- */
   .full-standings {
-    background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
-    padding: 6px 16px; margin-bottom: 28px; box-shadow: var(--shadow);
+    padding: 0; margin-bottom: 34px;
   }
   .full-standings .fs-row {
     display: grid; grid-template-columns: 22px 28px 1fr auto; gap: 10px; align-items: center;
@@ -364,9 +327,8 @@
 
   /* ---------- this week's storylines callout ---------- */
   .storylines {
-    background: linear-gradient(135deg, var(--accent-wash), transparent);
-    border: 1px solid var(--ring); border-left: 3px solid var(--accent);
-    border-radius: 14px; padding: 14px 18px; margin-bottom: 22px;
+    border-left: 2px solid var(--accent);
+    padding: 2px 0 2px 16px; margin-bottom: 30px;
     display: none; flex-direction: column; gap: 7px;
   }
   .storylines.has-items { display: flex; }
@@ -402,36 +364,30 @@
   .chip.draw { color: var(--draw); }
 
   .section-label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--ink-mute); font-weight: 600; margin: 2px 0 10px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-mute); font-weight: 600; margin: 40px 0 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ring);
     display: flex; align-items: center; gap: 7px;
   }
-  .section-label::before {
-    content: '\2658';
-    font-size: 13px; color: var(--ink-mute); opacity: 0.55;
-    text-transform: none; letter-spacing: normal;
-  }
+  .section-label:first-child { margin-top: 2px; padding-top: 0; border-top: none; }
   .wip-pill {
     display: inline-flex; align-items: center; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.04em; color: var(--gold); background: var(--gold-wash);
-    border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--ring));
-    padding: 2px 7px; border-radius: 999px; margin-left: 2px;
+    letter-spacing: 0.06em; color: var(--gold); margin-left: 2px;
   }
+  .wip-pill::before { content: '\2014'; margin-right: 5px; opacity: 0.6; }
 
   /* ---------- upset callout ---------- */
   .upset-card {
-    background: var(--surface);
-    border: 1px solid var(--ring);
-    border-radius: 16px;
-    padding: 16px 18px;
-    margin-bottom: 10px;
-    box-shadow: var(--shadow);
+    padding: 14px 2px;
+    border-bottom: 1px solid var(--ring);
     display: flex;
     align-items: center;
     gap: 14px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: background 0.15s ease;
   }
-  .upset-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
+  .upset-card:last-child { border-bottom: none; }
+  .upset-card:hover { background: var(--surface-2); margin: 0 -10px; padding: 14px 10px; border-radius: 10px; }
   .upset-card .bolt { font-size: 22px; flex-shrink: 0; }
   .upset-card .body { flex: 1; min-width: 0; }
   .upset-card .line { font-family: var(--disp); font-size: 14px; line-height: 1.5; }
@@ -445,34 +401,29 @@
   /* ---------- special events (one-off tournaments, kept out of the Hopen podium) ---------- */
   .special-events-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px; }
   .special-event-card {
-    background: var(--surface);
-    border: 1px solid var(--ring);
-    border-radius: 16px;
-    padding: 18px 18px 20px;
-    box-shadow: var(--shadow);
+    padding: 16px 2px 20px;
+    border-bottom: 1px solid var(--ring);
   }
+  .special-events-list .special-event-card:last-child { border-bottom: none; }
   .special-event-card .week-head { margin-bottom: 6px; }
   .podium.compact { margin-bottom: 16px; }
 
   /* ---------- weekly results ---------- */
   .week-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
   .week-card {
-    background: var(--surface);
-    border: 1px solid var(--ring);
-    border-radius: 14px;
-    padding: 14px 16px 16px;
-    box-shadow: var(--shadow);
-    transition: box-shadow 0.15s ease;
+    padding: 12px 2px 14px;
+    border-bottom: 1px solid var(--ring);
+    transition: background 0.15s ease;
   }
-  .week-card:hover { box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
+  .week-list .week-card:last-child { border-bottom: none; }
+  .week-card:hover { background: var(--surface-2); margin: 0 -10px; padding: 12px 10px 14px; border-radius: 10px; }
   .week-card[data-week-id] { cursor: pointer; }
   .week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
   .week-head .name { font-family: var(--disp); font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
   .week-head .week-toggle { font-size: 10px; color: var(--ink-mute); transition: transform 0.15s ease; }
   .week-card.open .week-toggle { transform: rotate(180deg); }
   .week-head .date {
-    font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap;
-    background: var(--surface-2); padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: var(--ink-mute); white-space: nowrap;
   }
   .week-meta { font-size: 11px; color: var(--ink-mute); margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 12px; }
   .week-meta span { white-space: nowrap; }
@@ -503,26 +454,17 @@
 
   /* ---------- graph ---------- */
   .graph-card {
-    background: var(--surface);
-    border: 1px solid var(--ring);
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
     position: relative;
-  }
-  .graph-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--accent), var(--gold));
-    opacity: 0.55;
   }
   .graph-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 18px 0;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--ring);
   }
-  .graph-head h2 { font-family: var(--disp); font-size: 14.5px; margin: 0; }
+  .graph-head h2 { font-family: var(--disp); font-size: 15px; font-weight: 700; margin: 0; }
   .graph-head .hint { font-size: 11.5px; color: var(--ink-mute); cursor: help; border-bottom: 1px dotted var(--ink-mute); }
 
   .graph-wrap { position: relative; height: 520px; }
@@ -697,12 +639,12 @@
   /* ---------- trends: fun badges ---------- */
   .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 12px; margin-bottom: 28px; }
   .badge-card {
-    background: var(--surface); border: 1px solid var(--ring); border-radius: 14px;
-    padding: 14px 16px; box-shadow: var(--shadow);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 0 0 4px;
   }
-  .badge-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(20,20,18,0.05), 0 14px 30px rgba(20,20,18,0.09); }
-  .badge-card .b-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-mute); font-weight: 700; margin-bottom: 8px; }
+  .badge-card .b-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-mute); font-weight: 700;
+    padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--ring-strong);
+  }
   .badge-card .b-body { font-family: var(--disp); font-size: 14px; font-weight: 600; line-height: 1.4; }
   .badge-card .b-sub { font-size: 11.5px; color: var(--ink-dim); margin-top: 4px; }
   .badge-card a { color: var(--accent); text-decoration: none; }
@@ -873,18 +815,16 @@
 
 <div class="shell">
   <div class="topbar">
-    <svg class="topbar-peaks" viewBox="0 0 700 100" preserveAspectRatio="none" aria-hidden="true">
-      <title>De Syv Søstre, seen from Sandnessjøen</title>
-      <path d="M0,70 Q25,70 50,30 Q75,70 100,70 Q125,70 150,42 Q175,70 200,70 Q225,70 250,22 Q275,70 300,70 Q325,70 350,38 Q375,70 400,70 Q425,70 450,28 Q475,70 500,70 Q525,70 550,48 Q575,70 600,70 Q625,70 650,18 Q675,70 700,70"></path>
-    </svg>
-    <div class="brand">
-      <span class="crest" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">&#9818;</span>
+    <div class="brand" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">
+      <span class="crest">&#9818;</span>
       <div>
         <h1>SSJakk</h1>
         <div class="sub">Club leaderboard</div>
       </div>
     </div>
-    <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#9789;</button>
+    <button class="theme-switch" id="themeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">
+      <span class="theme-switch-thumb"></span>
+    </button>
   </div>
 
   <div class="tabs">
@@ -1154,16 +1094,21 @@ function showSundayEmpty(title, detail) {
 function setupChrome() {
   const root = document.documentElement;
   const themeBtn = document.getElementById('themeToggle');
+  function currentTheme() {
+    return root.getAttribute('data-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+  function syncThemeSwitch() { themeBtn.classList.toggle('is-dark', currentTheme() === 'dark'); }
   try {
     const saved = localStorage.getItem('ssjakk-theme');
     if (saved) root.setAttribute('data-theme', saved);
   } catch(e) {}
+  syncThemeSwitch();
   themeBtn.addEventListener('click', () => {
-    const current = root.getAttribute('data-theme') ||
-      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const next = current === 'dark' ? 'light' : 'dark';
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('ssjakk-theme', next); } catch(e) {}
+    syncThemeSwitch();
   });
 
   document.querySelectorAll('.tab').forEach(btn => {
