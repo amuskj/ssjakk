@@ -1135,6 +1135,7 @@ async function boot() {
       if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching brilliancies.json');
       BRILLIANCIES = await res.json();
       initBrilliantMoves(BRILLIANCIES);
+      renderBrilliancyBadge(BRILLIANCIES);
     } catch (e) {
       console.error(e);
       document.getElementById('brilliantMoves').innerHTML =
@@ -2039,6 +2040,24 @@ function renderTrendsBadges(games) {
   }
 
   document.getElementById('trendsBadges').innerHTML = cards.join('');
+}
+
+// ---------- Trends: brilliant-moves leaderboard badge ----------
+// Appended to the existing badge grid once brilliancies.json loads
+// (separately from renderTrendsBadges, since that runs earlier off
+// games.json alone) -- who's found the most genuine sacrifices so far.
+function renderBrilliancyBadge(data) {
+  const list = (data && data.brilliancies) || [];
+  if (!list.length) return;
+  const counts = {};
+  list.forEach(b => { counts[b.person] = (counts[b.person] || 0) + 1; });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  if (!top.length) return;
+  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
+  const rows = top.map(([person, count], i) => rankRow(i, nameOf(person), `${count} found`)).join('');
+  const card = `<div class="badge-card"><div class="b-label">Most brilliant moves</div><div class="b-list">${rows}</div></div>`;
+  const grid = document.getElementById('trendsBadges');
+  if (grid) grid.insertAdjacentHTML('beforeend', card);
 }
 
 // ---------- Trends: rating-over-time chart ----------
