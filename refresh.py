@@ -206,10 +206,28 @@ def main():
         persons[p]["favoriteScore"] = per_opp[p].get(favorite) if favorite else None
 
     # ---- avatars + public profile facts (join date, league, current ratings) ----
+    # Avatar/league/current-rating all come from one "primary" account (the
+    # one someone actually plays on day to day) -- but for anyone with an
+    # alt account, "on Chess.com since" should reflect whichever of their
+    # accounts is actually older, not just whichever one happens to be
+    # primary. So every account's join date gets checked, even though only
+    # the primary account's profile supplies everything else.
     print("Fetching avatars, join dates, and current ratings...")
     for p in person_ids:
-        account = AVATAR_ACCOUNT_OVERRIDE.get(p, persons[p]["accounts"][0])
-        persons[p].update(fetch_profile(account))
+        accounts = persons[p]["accounts"]
+        primary = AVATAR_ACCOUNT_OVERRIDE.get(p, accounts[0])
+        persons[p].update(fetch_profile(primary))
+        if len(accounts) > 1:
+            joined_dates = [persons[p]["joined"]] if persons[p].get("joined") else []
+            for alt in accounts:
+                if alt == primary:
+                    continue
+                alt_profile = get_json(f"https://api.chess.com/pub/player/{alt.lower()}") or {}
+                alt_joined = alt_profile.get("joined")
+                if alt_joined:
+                    joined_dates.append(alt_joined)
+            if joined_dates:
+                persons[p]["joined"] = min(joined_dates)
 
     out = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),

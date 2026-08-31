@@ -135,7 +135,7 @@
     padding-bottom: 18px;
     border-bottom: 1px solid var(--ring-strong);
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; cursor: default; }
+  .brand { display: flex; align-items: baseline; gap: 10px; cursor: pointer; }
   .brand .crest {
     font-size: 19px;
     line-height: 1;
@@ -322,7 +322,7 @@
   .form-pills .fp.L { background: var(--loss); }
   .form-pills .fp.D { background: var(--ink-mute); }
   .form-pills.big .fp { width: 18px; height: 18px; font-size: 10px; border-radius: 5px; }
-  .profile-form { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .profile-form { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; }
   .profile-form .label { font-size: 11px; color: var(--ink-mute); }
 
   /* ---------- this week's storylines callout ---------- */
@@ -343,7 +343,7 @@
   .detail-share {
     border: 1px solid var(--ring-strong); background: var(--surface); color: var(--ink);
     font-family: var(--sans); font-size: 11.5px; font-weight: 600; cursor: pointer;
-    padding: 6px 12px; border-radius: 8px; margin: 4px 0 2px;
+    padding: 6px 12px; border-radius: 8px; margin: 16px 0 0;
   }
   .detail-share:hover { background: var(--surface-2); }
   .detail-share:disabled { opacity: 0.6; cursor: default; }
@@ -371,6 +371,12 @@
     display: flex; align-items: center; gap: 7px;
   }
   .section-label:first-child { margin-top: 2px; padding-top: 0; border-top: none; }
+  /* The storylines callout sits first in the Trends panel now, whether or
+     not it has anything to show this week -- its own bottom margin already
+     separates it from what follows, so the label right after it shouldn't
+     also draw a divider (that'd double up, or float alone when the
+     callout is empty and collapsed). */
+  #trendsStorylines + .section-label { margin-top: 2px; padding-top: 0; border-top: none; }
   .wip-pill {
     display: inline-flex; align-items: center; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.06em; color: var(--gold); margin-left: 2px;
@@ -542,7 +548,10 @@
   .detail-close { margin-left: auto; border: none; background: none; color: var(--ink-mute); cursor: pointer; font-size: 18px; }
   .profile-facts { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 11.5px; color: var(--ink-dim); margin: -4px 0 12px; }
   .profile-facts b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .opp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 8px; }
+  .opp-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 8px;
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ring);
+  }
   .opp-row {
     display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;
     font-size: 12px; padding: 8px 10px; border-radius: 9px; background: var(--surface-2);
@@ -564,9 +573,9 @@
   }
 
   .nemesis-line {
-    font-size: 12px; color: var(--ink-dim);
-    margin: -2px 0 12px; padding: 8px 10px;
-    background: var(--surface-2); border-radius: 9px;
+    font-size: 12px; color: var(--ink-dim); line-height: 1.5;
+    margin: 0 0 10px; padding: 1px 0 1px 12px;
+    border-left: 2px solid var(--ring-strong);
   }
   .nemesis-line b { color: var(--ink); }
 
@@ -815,7 +824,7 @@
 
 <div class="shell">
   <div class="topbar">
-    <div class="brand" title="SSJakk &middot; Sandnessjøen, under De Syv Søstre &middot; home of the Bjørn Jens Memorial Arena">
+    <div class="brand" id="brandHome" role="button" tabindex="0" aria-label="Back to Sunday Standings">
       <span class="crest">&#9818;</span>
       <div>
         <h1>SSJakk</h1>
@@ -839,7 +848,6 @@
       <button class="mode-btn active" data-mode="podium">Podium finishes</button>
       <button class="mode-btn" data-mode="points">Total points</button>
     </div>
-    <div id="sundayStorylines" class="storylines"></div>
 
     <div id="sundayPodium" class="podium"></div>
     <div id="sundayFullStandings" class="full-standings"></div>
@@ -899,6 +907,8 @@
 
   <!-- TRENDS -->
   <div class="panel" id="panel-trends">
+    <div id="trendsStorylines" class="storylines"></div>
+
     <div class="section-label">Rating over time &middot; chess.com history, with a Hopen Arena overlay</div>
     <div class="graph-card" id="trendsRatingCard" style="margin-bottom:28px;">
       <div class="graph-head">
@@ -1119,6 +1129,20 @@ function setupChrome() {
       document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
       ensureGraph(btn.dataset.tab);
     });
+  });
+
+  // Clicking (or keyboard-activating) the SSJakk wordmark works like a
+  // "home" link -- back to the front page (Sunday Standings) from
+  // wherever you've wandered off to, same as a logo on any other site.
+  const brandHome = document.getElementById('brandHome');
+  function goHome() {
+    const sundayTab = document.querySelector('.tab[data-tab="sunday"]');
+    if (sundayTab) sundayTab.click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  brandHome.addEventListener('click', goHome);
+  brandHome.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goHome(); }
   });
 }
 
@@ -1413,7 +1437,7 @@ function toggleWeekGames(card, week) {
 
 // ---------- This week's storylines callout ----------
 function renderStorylines(storylines) {
-  const el = document.getElementById('sundayStorylines');
+  const el = document.getElementById('trendsStorylines');
   if (!storylines) { el.classList.remove('has-items'); el.innerHTML = ''; return; }
 
   const lines = [];
@@ -2067,8 +2091,12 @@ function renderOpenings(games) {
     return;
   }
 
-  const top = entries.slice(0, 7);
-  const otherCount = entries.slice(7).reduce((sum, [, c]) => sum + c, 0);
+  // Any opening family played 3+ times earns its own slice; rarer ones
+  // (one-off tries, unusual sidelines) collapse into "Other" instead of
+  // being cut off at a fixed top-N, which was hiding openings that were
+  // clearly common enough to stand on their own.
+  const top = entries.filter(([, c]) => c >= 3);
+  const otherCount = entries.filter(([, c]) => c < 3).reduce((sum, [, c]) => sum + c, 0);
   const slices = otherCount > 0 ? [...top, ['Other openings', otherCount]] : top;
 
   const topFamilies = new Set(top.map(s => s[0]));
@@ -3047,7 +3075,6 @@ function buildGraph(key, players, edgesRaw) {
         <button class="detail-close" id="detailClose${idSuffix}">&times;</button>
       </div>
       ${profileFactsHtml(p)}
-      <button class="detail-share" id="detailShare${idSuffix}">&#128241; Share season card</button>
       ${extra}
       <div class="opp-grid">`;
     opp.forEach(o => {
@@ -3061,7 +3088,8 @@ function buildGraph(key, players, edgesRaw) {
         <div class="bar-wrap"><div class="bar-seg win" style="width:${winPct}%"></div><div class="bar-seg draw" style="width:${drawPct}%"></div><div class="bar-seg loss" style="width:${lossPct}%"></div></div>
       </div>`;
     });
-    html += `</div>`;
+    html += `</div>
+      <button class="detail-share" id="detailShare${idSuffix}">&#128241; Share season card</button>`;
     sheet.innerHTML = html;
     sheet.classList.add('open');
     document.getElementById('detailClose' + idSuffix).addEventListener('click', () => selectNode(null));

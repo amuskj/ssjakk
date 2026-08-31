@@ -215,6 +215,7 @@ def build_arena_graph(all_games):
         p["joined"] = src.get("joined")
         p["league"] = src.get("league")
         p["ratings"] = src.get("ratings")
+        p["accounts"] = src.get("accounts", [p["id"]])
 
     nemesis_map, _ = compute_nemesis(person_ids, edges)
     for p in players.values():
