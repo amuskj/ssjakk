@@ -35,6 +35,8 @@
     --silver-wash:  #eceef0;
     --bronze:       #9a5a2a;
     --bronze-wash:  #f3e2d1;
+    --brilliant:    #149c88;
+    --brilliant-wash: rgba(20,156,136,0.12);
     --edge:         #d8d6cd;
     --edge-hi:      #17181a;
     --win:          #4e7837;
@@ -69,6 +71,8 @@
       --silver-wash:  rgba(169,173,180,0.12);
       --bronze:       #c98456;
       --bronze-wash:  rgba(201,132,86,0.14);
+      --brilliant:    #2bbfa8;
+      --brilliant-wash: rgba(43,191,168,0.16);
       --edge:         #34342f;
       --edge-hi:      #f2f2f0;
       --win:          #7ab648;
@@ -100,6 +104,8 @@
     --silver-wash:  rgba(169,173,180,0.12);
     --bronze:       #c98456;
     --bronze-wash:  rgba(201,132,86,0.14);
+    --brilliant:    #2bbfa8;
+    --brilliant-wash: rgba(43,191,168,0.16);
     --edge:         #34342f;
     --edge-hi:      #f2f2f0;
     --win:          #7ab648;
@@ -714,6 +720,14 @@
   .bm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
   .bm-title { font-family: var(--disp); font-size: 14.5px; font-weight: 600; }
   .bm-title .solved-tick { color: var(--win); margin-left: 6px; font-size: 13px; }
+  .brilliant-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brilliant); color: #fff; font-weight: 800; font-family: var(--sans);
+    font-size: 11px; line-height: 1; padding: 3px 6px 4px; border-radius: 5px;
+    letter-spacing: -0.02em; box-shadow: 0 1px 2px rgba(20,20,18,0.2); vertical-align: middle;
+    margin-right: 2px;
+  }
+  .brilliant-badge.sm { font-size: 9px; padding: 2px 4px 3px; border-radius: 4px; }
   .bm-nav { display: flex; align-items: center; gap: 10px; }
   .bm-nav button {
     width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--ring);
@@ -1688,7 +1702,7 @@ function bmLoadPuzzle(i) {
   st.revealed = false;
 
   const solvedTick = st.solvedThisPuzzle ? ' <span class="solved-tick" title="You\'ve solved this one">&#10003;</span>' : '';
-  document.getElementById('bmTitle').innerHTML = 'Brilliant Moves' + solvedTick;
+  document.getElementById('bmTitle').innerHTML = '<span class="brilliant-badge">!!</span> Brilliant Moves' + solvedTick;
   document.getElementById('bmCounter').textContent = `Puzzle ${st.idx + 1} of ${st.list.length}`;
   document.getElementById('bmPrev').disabled = st.list.length < 2;
   document.getElementById('bmNext').disabled = st.list.length < 2;
@@ -1774,7 +1788,7 @@ function bmCheckAttempt(moveObj) {
     bmSaveSolved(st.solved);
     statusEl.className = 'bm-status correct';
     statusEl.innerHTML = `&#9989; Brilliant! <strong>${moveObj.san}</strong> was the move &mdash; eval held at ${bmFormatEval(puzzle.evalAfter)} after risking real material.`;
-    document.getElementById('bmTitle').innerHTML = 'Brilliant Moves <span class="solved-tick" title="You\'ve solved this one">&#10003;</span>';
+    document.getElementById('bmTitle').innerHTML = '<span class="brilliant-badge">!!</span> Brilliant Moves <span class="solved-tick" title="You\'ve solved this one">&#10003;</span>';
     bmRenderBoard();
   } else {
     statusEl.className = 'bm-status wrong';
@@ -2062,7 +2076,7 @@ function renderBrilliancyBadge(data) {
   if (!top.length) return;
   const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
   const rows = top.map(([person, count], i) => rankRow(i, nameOf(person), `${count} found`)).join('');
-  const card = `<div class="badge-card"><div class="b-label">Most brilliant moves</div><div class="b-list">${rows}</div></div>`;
+  const card = `<div class="badge-card"><div class="b-label"><span class="brilliant-badge sm">!!</span> Most brilliant moves</div><div class="b-list">${rows}</div></div>`;
   const grid = document.getElementById('trendsBadges');
   if (grid) grid.insertAdjacentHTML('beforeend', card);
 }
