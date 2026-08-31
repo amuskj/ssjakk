@@ -645,6 +645,19 @@
     border-radius: 999px; cursor: pointer;
   }
   .player-chip.active { background: var(--accent-wash); border-color: var(--accent); color: var(--ink); }
+  .rating-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px 0; }
+  .seg-group { display: inline-flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 999px; }
+  .seg-btn {
+    border: none; background: transparent; color: var(--ink-dim); font-family: var(--sans);
+    font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  }
+  .seg-btn.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20,20,18,0.1); }
+  .arena-toggle.active { background: var(--gold-wash); border-color: var(--gold); color: var(--ink); }
+  .arena-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+  .rline.faded { opacity: 0.28; }
+  .rdot.faded { opacity: 0.28; }
+  .rline.arena-line { stroke-width: 3.25px; }
+  .rdot.arena-dot { stroke-width: 2px; stroke: var(--surface); }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto; margin-bottom: 28px; }
   .log-row {
     display: grid; grid-template-columns: 60px 1fr auto auto; gap: 10px; align-items: center;
@@ -901,24 +914,16 @@
       </div>
     </div>
 
-    <div class="section-label">Lifetime rating &middot; blitz, every opponent</div>
-    <div class="graph-card" id="trendsLifetimeCard" style="margin-bottom:26px;">
+    <div class="section-label">Rating over time &middot; chess.com history, with a Hopen Arena overlay</div>
+    <div class="graph-card" id="trendsRatingCard" style="margin-bottom:28px;">
       <div class="graph-head">
-        <h2>Lifetime rating</h2>
+        <h2>Rating</h2>
         <span class="hint">click a name to toggle it</span>
       </div>
-      <div class="chart-wrap" id="trendsLifetimeWrap">
-        <svg id="vizLifetime"></svg>
-        <div class="tooltip" id="tooltipLifetime"></div>
-      </div>
-      <div class="chart-legend" id="trendsLifetimeLegend"></div>
-    </div>
-
-    <div class="section-label">Arena rating &middot; Hopen Arena sessions only</div>
-    <div class="graph-card" id="trendsChartCard" style="margin-bottom:28px;">
-      <div class="graph-head">
-        <h2>Arena rating</h2>
-        <span class="hint">click a name to toggle it</span>
+      <div class="rating-controls" id="ratingControls">
+        <div class="seg-group" id="classTabs"></div>
+        <div class="seg-group" id="rangeTabs"></div>
+        <button class="player-chip arena-toggle" id="arenaToggle" type="button">&#127942; Hopen Arena</button>
       </div>
       <div class="chart-wrap" id="trendsChartWrap">
         <svg id="vizTrends"></svg>
@@ -954,6 +959,8 @@ let bmState = { idx: 0, list: [], chessGame: null, selected: null, solved: new S
 let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
+let gamesLoadAttempted = false;
+let ratingsLoadAttempted = false;
 let NAME_MAP = {};
 let sundayMode = 'podium';
 const graphsBuilt = {};
@@ -1093,15 +1100,11 @@ function ensureGraph(tab) {
   }
   if (tab === 'trends') {
     if (typeof d3 === 'undefined') return;
-    if (!graphsBuilt.trendsArena && GAMES && GAMES.length) {
-      buildRatingChart(GAMES);
-      graphsBuilt.trendsArena = true;
+    if (!graphsBuilt.trendsRating && gamesLoadAttempted && ratingsLoadAttempted) {
+      buildRatingChart(GAMES || [], RATINGS || { players: {}, timeClasses: [] });
+      graphsBuilt.trendsRating = true;
+      graphsBuilt.trends = true;
     }
-    if (!graphsBuilt.trendsLifetime && RATINGS && RATINGS.players && Object.keys(RATINGS.players).length) {
-      buildLifetimeRatingChart(RATINGS.players);
-      graphsBuilt.trendsLifetime = true;
-    }
-    if (graphsBuilt.trendsArena && graphsBuilt.trendsLifetime) graphsBuilt.trends = true;
   }
 }
 
@@ -1135,12 +1138,13 @@ async function boot() {
     renderTrendsBadges(GAMES);
     document.getElementById('trendsFoot').innerHTML =
       `${GAMES.length} games logged across every Sunday arena &middot; generated ${new Date(payload.generatedAt).toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'})} &middot; not a live feed`;
-    ensureGraph('trends');
   } catch (e) {
     console.error(e);
     document.getElementById('trendsLog').innerHTML =
       '<div class="empty-state"><div class="icon">&#9823;&#65039;</div><h3>No game log yet</h3><p>Run build_games.py after a session and push games.json to fill this tab in.</p></div>';
   }
+  gamesLoadAttempted = true;
+  ensureGraph('trends');
 
   // ---------- Brilliant moves (self-contained -- no chart library needed) ----------
   if (typeof Chess === 'undefined') {
@@ -1166,13 +1170,25 @@ async function boot() {
     const res = await fetch('./ratings.json', {cache: 'no-store'});
     if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching ratings.json');
     RATINGS = await res.json();
+    if (!Array.isArray(RATINGS.timeClasses)) {
+      // Older ratings.json: players[person] was a flat [[et,rating],...]
+      // array for one hardcoded time class. Wrap it so the chart can treat
+      // every ratings.json the same way going forward.
+      const legacyClass = RATINGS.timeClass || 'blitz';
+      const players = {};
+      Object.entries(RATINGS.players || {}).forEach(([p, arr]) => {
+        players[p] = Array.isArray(arr) ? { [legacyClass]: arr } : arr;
+      });
+      RATINGS.players = players;
+      RATINGS.timeClasses = [legacyClass];
+    }
     Object.assign(NAME_MAP, RATINGS.displayNames || {});
-    ensureGraph('trends');
   } catch (e) {
     console.error(e);
-    document.getElementById('trendsLifetimeWrap').innerHTML =
-      '<div class="empty-state"><div class="icon">&#9818;</div><h3>No lifetime rating data yet</h3><p>Run refresh.py to generate ratings.json.</p></div>';
+    RATINGS = { players: {}, timeClasses: [] };
   }
+  ratingsLoadAttempted = true;
+  ensureGraph('trends');
 
   // ---------- Rivalry (needs d3 + data.json) ----------
   if (typeof d3 === 'undefined') {
@@ -2082,130 +2098,129 @@ function renderBrilliancyBadge(data) {
 }
 
 // ---------- Trends: rating-over-time chart ----------
-function buildRatingChart(games) {
-  const svg = d3.select('#vizTrends');
+// ---------- Trends: rating chart -- chess.com history (blitz/rapid/bullet/
+// daily, with an All time / 1Y / 1M / 1W range) and an optional Hopen Arena
+// overlay. One chart instead of two: turning Arena on fades the chess.com
+// line and draws a bolder line through that person's average rating on
+// each Hopen day (was one dot per arena game before, which just made a
+// jagged sawtooth every Sunday -- now it's one aggregated point per day).
+function buildRatingChart(gamesRaw, ratingsRaw) {
   const wrap = document.getElementById('trendsChartWrap');
+  const svg = d3.select('#vizTrends');
   const tooltip = document.getElementById('tooltipTrends');
-  const width = wrap.clientWidth, height = wrap.clientHeight;
-  const margin = { top: 16, right: 20, bottom: 26, left: 42 };
-
-  const people = [...new Set(games.flatMap(g => [g.white.person, g.black.person]))]
-    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-  const color = d3.scaleOrdinal().domain(people).range(TREND_PALETTE);
-
-  const series = people.map(person => ({
-    person,
-    points: personGamesOf(person, games).map(g => ({
-      date: new Date((g.endTime || 0) * 1000),
-      rating: g.isWhite ? g.white.rating : g.black.rating,
-      opp: g.opp.displayName,
-      result: g.result,
-      url: g.url
-    }))
-  }));
-
-  const x = d3.scaleTime()
-    .domain(d3.extent(games, g => new Date((g.endTime || 0) * 1000)))
-    .range([margin.left, width - margin.right]);
-  const allRatings = series.flatMap(s => s.points.map(p => p.rating)).filter(r => r != null);
-  const y = d3.scaleLinear()
-    .domain([d3.min(allRatings) - 40, d3.max(allRatings) + 40])
-    .range([height - margin.bottom, margin.top]);
-
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
-
-  svg.append('g').attr('class', 'raxis rgrid').attr('transform', `translate(${margin.left},0)`)
-    .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
-  svg.append('g').attr('class', 'raxis').attr('transform', `translate(0,${height - margin.bottom})`)
-    .call(d3.axisBottom(x).ticks(Math.min(6, games.length)).tickSizeOuter(0));
-
-  const line = d3.line().x(d => x(d.date)).y(d => y(d.rating)).curve(d3.curveMonotoneX);
-
-  const seriesG = svg.append('g').selectAll('g.series').data(series).join('g')
-    .attr('class', 'series').attr('data-person', d => d.person);
-
-  seriesG.append('path').attr('class', 'rline').attr('d', d => line(d.points)).attr('stroke', d => color(d.person));
-
-  function positionTooltip(ev) {
-    const rect = wrap.getBoundingClientRect();
-    tooltip.style.opacity = 1;
-    tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
-    tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
-  }
-
-  seriesG.each(function (s) {
-    d3.select(this).selectAll('circle').data(s.points).join('circle')
-      .attr('class', 'rdot').attr('r', 3.5)
-      .attr('cx', d => x(d.date)).attr('cy', d => y(d.rating))
-      .attr('fill', color(s.person))
-      .on('mousemove', (ev, d) => {
-        const resultLabel = d.result === 'win' ? '<span class="chip win">won</span>' : d.result === 'loss' ? '<span class="chip loss">lost</span>' : '<span class="chip draw">drew</span>';
-        tooltip.innerHTML = `<b>${nameOf(s.person)}</b> &middot; ${d.rating}<br>${resultLabel} vs ${d.opp}<br><span class="muted">${d.date.toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>`;
-        positionTooltip(ev);
-      })
-      .on('mouseleave', () => tooltip.style.opacity = 0)
-      .on('click', (ev, d) => window.open(d.url, '_blank', 'noopener,noreferrer'));
-  });
-
+  const controlsEl = document.getElementById('ratingControls');
   const legend = document.getElementById('trendsLegend');
-  legend.innerHTML = '';
-  const hidden = new Set();
-  people.forEach(p => {
-    const chip = document.createElement('div');
-    chip.className = 'legend-chip';
-    chip.innerHTML = `<span class="dot" style="background:${color(p)}"></span>${nameOf(p)}`;
-    chip.addEventListener('click', () => {
-      if (hidden.has(p)) hidden.delete(p); else hidden.add(p);
-      chip.classList.toggle('off');
-      seriesG.filter(d => d.person === p).style('display', hidden.has(p) ? 'none' : null);
-    });
-    legend.appendChild(chip);
-  });
-}
+  const classTabsEl = document.getElementById('classTabs');
+  const rangeTabsEl = document.getElementById('rangeTabs');
+  const arenaBtn = document.getElementById('arenaToggle');
 
-// ---------- Trends: lifetime rating chart (one point per day, any opponent) ----------
-function buildLifetimeRatingChart(playersObj) {
-  const svg = d3.select('#vizLifetime');
-  const wrap = document.getElementById('trendsLifetimeWrap');
-  const tooltip = document.getElementById('tooltipLifetime');
-  const width = wrap.clientWidth, height = wrap.clientHeight;
-  const margin = { top: 16, right: 20, bottom: 26, left: 42 };
+  const CLASS_ORDER = ['blitz', 'rapid', 'bullet', 'daily'];
+  const CLASS_LABELS = { blitz: 'Blitz', rapid: 'Rapid', bullet: 'Bullet', daily: 'Daily' };
+  const RANGE_ORDER = ['all', '1y', '1m', '1w'];
+  const RANGE_LABELS = { all: 'All time', '1y': '1Y', '1m': '1M', '1w': '1W' };
+  const RANGE_DAYS = { '1y': 365, '1m': 30, '1w': 7 };
 
-  const people = Object.keys(playersObj).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-  const color = d3.scaleOrdinal().domain(people).range(TREND_PALETTE);
+  const playersObj = ratingsRaw.players || {};
+  const classes = CLASS_ORDER.filter(c => Object.values(playersObj).some(p => (p[c] || []).length));
+  const hasLifetime = classes.length > 0;
+  const hasArena = !!(gamesRaw && gamesRaw.length);
 
-  const series = people.map(person => ({
-    person,
-    points: (playersObj[person] || [])
-      .filter(([et, rating]) => et != null && rating != null)
-      .map(([et, rating]) => ({ date: new Date(et * 1000), rating }))
-  })).filter(s => s.points.length);
-
-  const allDates = series.flatMap(s => s.points.map(p => p.date));
-  const allRatings = series.flatMap(s => s.points.map(p => p.rating));
-  if (!allDates.length) {
-    wrap.innerHTML = '<div class="empty-state"><p>No lifetime rating data yet.</p></div>';
+  if (!hasLifetime && !hasArena) {
+    controlsEl.style.display = 'none';
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">&#9818;</div><h3>No rating data yet</h3>' +
+      '<p>Run refresh.py (for chess.com rating history) or build_games.py (for Hopen Arena games) and push the result.</p></div>';
+    legend.innerHTML = '';
     return;
   }
 
-  const x = d3.scaleTime().domain(d3.extent(allDates)).range([margin.left, width - margin.right]);
-  const y = d3.scaleLinear()
-    .domain([d3.min(allRatings) - 40, d3.max(allRatings) + 40])
-    .range([height - margin.bottom, margin.top]);
+  function loadPref(key, fallback) {
+    try { return localStorage.getItem('ssjakk-rating-' + key) || fallback; } catch (e) { return fallback; }
+  }
+  function savePref(key, val) {
+    try { localStorage.setItem('ssjakk-rating-' + key, val); } catch (e) {}
+  }
 
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
+  const savedCls = loadPref('class', 'blitz');
+  const savedRange = loadPref('range', 'all');
+  const state = {
+    cls: classes.includes(savedCls) ? savedCls : (classes[0] || null),
+    range: RANGE_ORDER.includes(savedRange) ? savedRange : 'all',
+    arena: false,
+  };
 
-  svg.append('g').attr('class', 'raxis rgrid').attr('transform', `translate(${margin.left},0)`)
-    .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
-  svg.append('g').attr('class', 'raxis').attr('transform', `translate(0,${height - margin.bottom})`)
-    .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+  if (classes.length > 1) {
+    classTabsEl.style.display = '';
+    classTabsEl.innerHTML = classes.map(c => `<button class="seg-btn" data-cls="${c}">${CLASS_LABELS[c]}</button>`).join('');
+  } else {
+    classTabsEl.style.display = 'none';
+  }
+  rangeTabsEl.innerHTML = RANGE_ORDER.map(r => `<button class="seg-btn" data-range="${r}">${RANGE_LABELS[r]}</button>`).join('');
 
-  const line = d3.line().x(d => x(d.date)).y(d => y(d.rating)).curve(d3.curveMonotoneX);
+  if (!hasArena) {
+    arenaBtn.disabled = true;
+    arenaBtn.title = 'No Hopen Arena games logged yet';
+  } else if (!hasLifetime) {
+    // Arena is all we have -- force it on and hide the (now meaningless) toggle.
+    state.arena = true;
+    arenaBtn.style.display = 'none';
+  }
 
-  const seriesG = svg.append('g').selectAll('g.series').data(series).join('g')
-    .attr('class', 'series').attr('data-person', d => d.person);
+  function syncControls() {
+    classTabsEl.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.cls === state.cls));
+    rangeTabsEl.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.range === state.range));
+    if (hasArena && hasLifetime) {
+      // Every Hopen Arena game chess.com has ever classified is blitz, so
+      // overlaying arena data only makes sense on the Blitz view.
+      const arenaUsable = state.cls === 'blitz';
+      arenaBtn.disabled = !arenaUsable;
+      arenaBtn.title = arenaUsable ? 'Overlay Hopen Arena rating' : 'Hopen Arena games are blitz — switch to Blitz to overlay';
+      if (!arenaUsable) state.arena = false;
+    }
+    arenaBtn.classList.toggle('active', state.arena);
+  }
 
-  seriesG.append('path').attr('class', 'rline').attr('d', d => line(d.points)).attr('stroke', d => color(d.person));
+  function cutoffDate(range) {
+    if (range === 'all') return null;
+    const d = new Date();
+    d.setDate(d.getDate() - RANGE_DAYS[range]);
+    return d;
+  }
+
+  function buildLifetimeSeries(cls, cutoff) {
+    if (!cls) return [];
+    return Object.keys(playersObj).sort((a, b) => nameOf(a).localeCompare(nameOf(b))).map(person => ({
+      person,
+      points: (playersObj[person][cls] || [])
+        .filter(([et, rating]) => et != null && rating != null)
+        .map(([et, rating]) => ({ date: new Date(et * 1000), rating }))
+        .filter(p => !cutoff || p.date >= cutoff),
+    })).filter(s => s.points.length);
+  }
+
+  function buildArenaSeries(cutoff) {
+    const byPersonDay = {};
+    (gamesRaw || []).forEach(g => {
+      [g.white, g.black].forEach(side => {
+        if (side.rating == null || !g.date) return;
+        const dayMap = byPersonDay[side.person] || (byPersonDay[side.person] = {});
+        (dayMap[g.date] || (dayMap[g.date] = [])).push(side.rating);
+      });
+    });
+    return Object.keys(byPersonDay).map(person => {
+      const points = Object.keys(byPersonDay[person]).sort().map(dateStr => {
+        const ratings = byPersonDay[person][dateStr];
+        const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+        return {
+          date: new Date(dateStr + 'T12:00:00'),
+          rating: Math.round(avg),
+          min: Math.min(...ratings),
+          max: Math.max(...ratings),
+          games: ratings.length,
+        };
+      }).filter(p => !cutoff || p.date >= cutoff);
+      return { person, points };
+    }).filter(s => s.points.length);
+  }
 
   function positionTooltip(ev) {
     const rect = wrap.getBoundingClientRect();
@@ -2214,34 +2229,136 @@ function buildLifetimeRatingChart(playersObj) {
     tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
   }
 
-  seriesG.each(function (s) {
-    d3.select(this).selectAll('circle').data(s.points).join('circle')
-      .attr('class', 'rdot').attr('r', 2).style('stroke-width', 0)
-      .attr('cx', d => x(d.date)).attr('cy', d => y(d.rating))
-      .attr('fill', color(s.person))
-      .on('mousemove', (ev, d) => {
-        tooltip.innerHTML = `<b>${nameOf(s.person)}</b> &middot; ${d.rating}<br><span class="muted">${d.date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>`;
-        positionTooltip(ev);
-      })
-      .on('mouseleave', () => tooltip.style.opacity = 0);
-  });
-
-  const legend = document.getElementById('trendsLifetimeLegend');
-  legend.innerHTML = '';
   const hidden = new Set();
-  series.forEach(s => {
-    const chip = document.createElement('div');
-    chip.className = 'legend-chip';
-    chip.innerHTML = `<span class="dot" style="background:${color(s.person)}"></span>${nameOf(s.person)}`;
-    chip.addEventListener('click', () => {
-      if (hidden.has(s.person)) hidden.delete(s.person); else hidden.add(s.person);
-      chip.classList.toggle('off');
-      seriesG.filter(d => d.person === s.person).style('display', hidden.has(s.person) ? 'none' : null);
-    });
-    legend.appendChild(chip);
-  });
-}
 
+  function redraw() {
+    syncControls();
+    const cutoff = cutoffDate(state.range);
+    const lifetimeSeries = buildLifetimeSeries(state.cls, cutoff);
+    const arenaSeries = state.arena ? buildArenaSeries(cutoff) : [];
+
+    svg.selectAll('*').remove();
+
+    const allPeople = [...new Set([...lifetimeSeries.map(s => s.person), ...arenaSeries.map(s => s.person)])]
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+
+    let emptyEl = wrap.querySelector('.empty-state');
+    if (!allPeople.length) {
+      svg.style('display', 'none');
+      if (!emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.className = 'empty-state';
+        wrap.appendChild(emptyEl);
+      }
+      emptyEl.innerHTML = '<p>No rating data in this range.</p>';
+      legend.innerHTML = '';
+      return;
+    }
+    svg.style('display', null);
+    if (emptyEl) emptyEl.remove();
+
+    const color = d3.scaleOrdinal().domain(allPeople).range(TREND_PALETTE);
+    const width = wrap.clientWidth, height = wrap.clientHeight;
+    const margin = { top: 16, right: 20, bottom: 26, left: 42 };
+
+    const allDates = [...lifetimeSeries, ...arenaSeries].flatMap(s => s.points.map(p => p.date));
+    const allRatings = [...lifetimeSeries, ...arenaSeries].flatMap(s => s.points.map(p => p.rating));
+
+    const x = d3.scaleTime().domain(d3.extent(allDates)).range([margin.left, width - margin.right]);
+    const y = d3.scaleLinear()
+      .domain([d3.min(allRatings) - 40, d3.max(allRatings) + 40])
+      .range([height - margin.bottom, margin.top]);
+
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
+    svg.append('g').attr('class', 'raxis rgrid').attr('transform', `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
+    svg.append('g').attr('class', 'raxis').attr('transform', `translate(0,${height - margin.bottom})`)
+      .call(d3.axisBottom(x).ticks(Math.min(6, allDates.length)).tickSizeOuter(0));
+
+    const line = d3.line().x(d => x(d.date)).y(d => y(d.rating)).curve(d3.curveMonotoneX);
+    const fadeLifetime = state.arena && arenaSeries.length > 0;
+
+    const lifeG = svg.append('g').attr('class', 'layer-lifetime').selectAll('g.series').data(lifetimeSeries).join('g')
+      .attr('class', 'series').attr('data-person', d => d.person)
+      .style('display', d => hidden.has(d.person) ? 'none' : null);
+
+    lifeG.append('path')
+      .attr('class', 'rline' + (fadeLifetime ? ' faded' : ''))
+      .attr('d', d => line(d.points)).attr('stroke', d => color(d.person));
+
+    lifeG.each(function (s) {
+      d3.select(this).selectAll('circle').data(s.points).join('circle')
+        .attr('class', 'rdot' + (fadeLifetime ? ' faded' : ''))
+        .attr('r', fadeLifetime ? 1.6 : 2).style('stroke-width', 0)
+        .attr('cx', d => x(d.date)).attr('cy', d => y(d.rating))
+        .attr('fill', color(s.person))
+        .on('mousemove', (ev, d) => {
+          tooltip.innerHTML = `<b>${nameOf(s.person)}</b> &middot; ${d.rating}<br><span class="muted">${CLASS_LABELS[state.cls]} &middot; ${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+          positionTooltip(ev);
+        })
+        .on('mouseleave', () => tooltip.style.opacity = 0);
+    });
+
+    if (state.arena) {
+      const arenaG = svg.append('g').attr('class', 'layer-arena').selectAll('g.series').data(arenaSeries).join('g')
+        .attr('class', 'series').attr('data-person', d => d.person)
+        .style('display', d => hidden.has(d.person) ? 'none' : null);
+
+      arenaG.append('path')
+        .attr('class', 'rline arena-line')
+        .attr('d', d => line(d.points)).attr('stroke', d => color(d.person));
+
+      arenaG.each(function (s) {
+        d3.select(this).selectAll('circle').data(s.points).join('circle')
+          .attr('class', 'rdot arena-dot').attr('r', 4)
+          .attr('cx', d => x(d.date)).attr('cy', d => y(d.rating))
+          .attr('fill', color(s.person))
+          .on('mousemove', (ev, d) => {
+            const rangeLabel = d.games > 1 ? `${d.min}–${d.max} across ${d.games} games` : '1 game';
+            tooltip.innerHTML = `<b>${nameOf(s.person)}</b> &middot; ${d.rating} avg<br><span class="muted">Hopen Arena &middot; ${rangeLabel}</span><br><span class="muted">${d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+            positionTooltip(ev);
+          })
+          .on('mouseleave', () => tooltip.style.opacity = 0)
+          .on('click', () => {}); // no single game url once averaged -- click does nothing
+      });
+    }
+
+    legend.innerHTML = '';
+    allPeople.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'legend-chip' + (hidden.has(p) ? ' off' : '');
+      chip.innerHTML = `<span class="dot" style="background:${color(p)}"></span>${nameOf(p)}`;
+      chip.addEventListener('click', () => {
+        if (hidden.has(p)) hidden.delete(p); else hidden.add(p);
+        chip.classList.toggle('off');
+        svg.selectAll('g.series').filter(d => d.person === p).style('display', hidden.has(p) ? 'none' : null);
+      });
+      legend.appendChild(chip);
+    });
+  }
+
+  classTabsEl.addEventListener('click', ev => {
+    const btn = ev.target.closest('.seg-btn[data-cls]');
+    if (!btn) return;
+    state.cls = btn.dataset.cls;
+    savePref('class', state.cls);
+    redraw();
+  });
+  rangeTabsEl.addEventListener('click', ev => {
+    const btn = ev.target.closest('.seg-btn[data-range]');
+    if (!btn) return;
+    state.range = btn.dataset.range;
+    savePref('range', state.range);
+    redraw();
+  });
+  arenaBtn.addEventListener('click', () => {
+    if (arenaBtn.disabled) return;
+    state.arena = !state.arena;
+    redraw();
+  });
+
+  redraw();
+}
 // ---------- shared force-directed graph, used by both tabs ----------
 function buildGraph(key, players, edgesRaw) {
   const idSuffix = key === 'rivalry' ? '' : 'Sunday';
