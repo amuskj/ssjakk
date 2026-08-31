@@ -767,6 +767,43 @@
   .player-header-card .profile-facts { margin: 0; }
   .player-header-card .profile-form { margin: 10px 0 0; }
 
+  .heatmap-card {
+    background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 20px; margin-bottom: 28px;
+  }
+  .heatmap-layout { display: grid; grid-template-columns: minmax(200px, 320px) 1fr; gap: 24px; align-items: center; }
+  @media (max-width: 640px) { .heatmap-layout { grid-template-columns: 1fr; } }
+  .hm-board {
+    display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--ring-strong); box-shadow: 0 1px 3px rgba(20,20,18,0.08);
+  }
+  .hm-sq { position: relative; }
+  .hm-sq.light { background: #ead9bd; }
+  .hm-sq.dark { background: #8a6a49; }
+  .hm-fill { position: absolute; inset: 0; background: var(--accent); opacity: 0; transition: opacity 0.5s ease; }
+  .hm-count {
+    position: absolute; top: 2px; right: 4px; font-size: 9.5px; font-weight: 700;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) { .hm-fill, .hm-count { transition: none; } }
+  .heatmap-side { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .heatmap-ply-label { font-family: var(--disp); font-size: 19px; font-weight: 700; }
+  .heatmap-ply-dots { display: flex; gap: 6px; }
+  .heatmap-ply-dots button {
+    width: 10px; height: 10px; border-radius: 999px; border: none; padding: 0;
+    background: var(--ring-strong); cursor: pointer;
+  }
+  .heatmap-ply-dots button.active { background: var(--accent); }
+  .heatmap-ply-dots button:focus-visible, .heatmap-play-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .heatmap-play-btn {
+    border: 1px solid var(--ring-strong); background: var(--surface); color: var(--ink);
+    font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border-radius: 999px; cursor: pointer;
+  }
+  .heatmap-note { font-size: 11.5px; color: var(--ink-mute); line-height: 1.5; }
+
   /* ---------- trends: brilliant moves puzzle ---------- */
   .bm-card {
     background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
@@ -1023,6 +1060,9 @@
     <div class="section-label">Openings &middot; families played 3+ times get their own slice, same as the club-wide chart</div>
     <div id="playerOpenings" class="openings-wrap"></div>
 
+    <div class="section-label">Opening moves &middot; where each move lands, autoplaying move 1 through 5</div>
+    <div class="heatmap-card" id="playerHeatmapCard"></div>
+
     <div class="foot" id="playerFoot"></div>
   </div>
 </div>
@@ -1045,6 +1085,7 @@ let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
 let GAME_ANALYSIS = null;
+let MOVE_STATS = null;
 let gamesLoadAttempted = false;
 let ratingsLoadAttempted = false;
 let gameAnalysisLoadAttempted = false;
@@ -1219,7 +1260,7 @@ function ensureGraph(tab) {
   if (tab === 'player') {
     if (!DATA || !DATA.players || !DATA.players.length) return;
     if (!graphsBuilt.player) {
-      buildPlayerStats(DATA.players, GAMES || []);
+      buildPlayerStats(DATA.players, GAMES || [], MOVE_STATS || { maxOwnMoves: 5, club: { gamesAnalyzed: 0, moveSquares: [] }, players: {} });
       graphsBuilt.player = true;
     }
   }
@@ -1286,6 +1327,17 @@ async function boot() {
   }
   gameAnalysisLoadAttempted = true;
   ensureGraph('trends');
+
+  // ---------- Opening move-frequency stats (for the Player Stats heatmap) ----------
+  try {
+    const res = await fetch('./move_stats.json', {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching move_stats.json');
+    MOVE_STATS = await res.json();
+  } catch (e) {
+    console.error(e);
+    MOVE_STATS = { maxOwnMoves: 5, club: { gamesAnalyzed: 0, moveSquares: [] }, players: {} };
+  }
+  ensureGraph('player');
 
   // ---------- Brilliant moves (self-contained -- no chart library needed) ----------
   if (typeof Chess === 'undefined') {
@@ -2195,10 +2247,111 @@ function renderOpenings(games, containerId) {
   }
 }
 
+// ---------- Player Stats: opening-move heatmap -- autoplays through each
+// of this player's own move 1 through moveStats.maxOwnMoves, fading a
+// heat overlay onto whichever squares that move landed on across every
+// game of theirs on record. Rebuilds its DOM fresh on every call (same
+// pattern as renderOpenings()); returns a stop() the caller invokes
+// before switching to a different player, so the previous autoplay timer
+// doesn't keep ticking in the background.
+function buildPlayerHeatmap(personId, moveStats) {
+  const card = document.getElementById('playerHeatmapCard');
+  const entry = moveStats && moveStats.players && moveStats.players[personId];
+
+  if (!entry || !entry.gamesAnalyzed || !entry.moveSquares || !entry.moveSquares.length) {
+    card.innerHTML = '<div class="empty-state"><p>No move data yet for this player &mdash; the opening move-frequency pipeline needs to run at least once.</p></div>';
+    return () => {};
+  }
+
+  card.innerHTML = `
+    <div class="heatmap-layout">
+      <div class="hm-board" id="playerHeatmapBoard"></div>
+      <div class="heatmap-side">
+        <div class="heatmap-ply-label" id="heatmapPlyLabel">Move 1</div>
+        <div class="heatmap-ply-dots" id="heatmapDots"></div>
+        <button class="heatmap-play-btn" id="heatmapPlayBtn" type="button">Pause</button>
+        <div class="heatmap-note" id="heatmapNote"></div>
+      </div>
+    </div>`;
+
+  const boardEl = document.getElementById('playerHeatmapBoard');
+  const dotsEl = document.getElementById('heatmapDots');
+  const labelEl = document.getElementById('heatmapPlyLabel');
+  const playBtn = document.getElementById('heatmapPlayBtn');
+  const noteEl = document.getElementById('heatmapNote');
+
+  const maxMoves = entry.moveSquares.length;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const sqEls = {};
+  for (let r = 7; r >= 0; r--) {
+    for (let f = 0; f <= 7; f++) {
+      const sq = 'abcdefgh'[f] + (r + 1);
+      const isLight = (f + r) % 2 === 1;
+      const div = document.createElement('div');
+      div.className = 'hm-sq ' + (isLight ? 'light' : 'dark');
+      div.innerHTML = '<div class="hm-fill"></div><div class="hm-count"></div>';
+      boardEl.appendChild(div);
+      sqEls[sq] = div;
+    }
+  }
+
+  dotsEl.innerHTML = entry.moveSquares.map((_, i) => `<button type="button" data-ply="${i}" aria-label="Move ${i + 1}"></button>`).join('');
+
+  let ply = 0, timer = null;
+
+  function renderPly(i) {
+    ply = i;
+    const counts = entry.moveSquares[i] || {};
+    const values = Object.values(counts);
+    const max = values.length ? Math.max(...values) : 0;
+    Object.keys(sqEls).forEach(sq => {
+      const el = sqEls[sq];
+      const c = counts[sq] || 0;
+      const fill = el.querySelector('.hm-fill');
+      const label = el.querySelector('.hm-count');
+      if (c > 0 && max > 0) {
+        fill.style.opacity = (0.16 + 0.68 * (c / max)).toFixed(2);
+        label.textContent = c;
+        label.style.opacity = 1;
+      } else {
+        fill.style.opacity = 0;
+        label.style.opacity = 0;
+      }
+    });
+    labelEl.textContent = `Move ${i + 1}`;
+    dotsEl.querySelectorAll('button').forEach((b, idx) => b.classList.toggle('active', idx === i));
+    noteEl.textContent = `${entry.gamesAnalyzed} games analyzed \u00b7 where move ${i + 1} landed`;
+  }
+
+  function stopAuto() {
+    if (timer) { clearInterval(timer); timer = null; }
+    playBtn.textContent = 'Play';
+  }
+  function startAuto() {
+    if (timer) return;
+    timer = setInterval(() => renderPly((ply + 1) % maxMoves), 1400);
+    playBtn.textContent = 'Pause';
+  }
+
+  playBtn.addEventListener('click', () => { timer ? stopAuto() : startAuto(); });
+  dotsEl.addEventListener('click', ev => {
+    const btn = ev.target.closest('button[data-ply]');
+    if (!btn) return;
+    stopAuto();
+    renderPly(+btn.dataset.ply);
+  });
+
+  renderPly(0);
+  if (!reduceMotion) startAuto(); else stopAuto();
+
+  return stopAuto;
+}
+
 // ---------- Player Stats: per-player deep dive (openings first; a
 // move-frequency heatmap is planned to follow once that data pipeline
 // exists) ----------
-function buildPlayerStats(players, games) {
+function buildPlayerStats(players, games, moveStats) {
   const selectEl = document.getElementById('playerSelect');
   const sorted = [...players].sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
   selectEl.innerHTML = sorted.map(p => `<option value="${p.id}">${p.displayName}</option>`).join('');
@@ -2213,6 +2366,7 @@ function buildPlayerStats(players, games) {
     try { localStorage.setItem('ssjakk-player-select', id); } catch (e) {}
   }
 
+  let heatmapCleanup = () => {};
   function render(personId) {
     const p = players.find(x => x.id === personId);
     if (!p) return;
@@ -2223,6 +2377,8 @@ function buildPlayerStats(players, games) {
         ${profileFactsHtml(p)}
       </div>`;
     renderOpenings(gamesFor(personId), 'playerOpenings');
+    heatmapCleanup();
+    heatmapCleanup = buildPlayerHeatmap(personId, moveStats);
     document.getElementById('playerFoot').innerHTML =
       `${p.totalGames} games recorded lifetime against fellow SSJakk members &middot; not a live feed`;
   }
