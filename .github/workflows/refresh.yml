@@ -79,6 +79,7 @@ jobs:
           [ -f discovered_tournaments.json ] && git add discovered_tournaments.json
           [ -f .last_recap_week ] && git add .last_recap_week
           [ -f brilliancies.json ] && git add brilliancies.json
+          [ -f game_analysis.json ] && git add game_analysis.json
           if git diff --cached --quiet; then
             echo "Nothing changed."
           else

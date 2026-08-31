@@ -1,19 +1,41 @@
 #!/usr/bin/env python3
 """
-SSJakk brilliant-move finder.
+SSJakk Stockfish analysis.
 
-Runs Stockfish over every Sunday arena game to find genuine brilliancies --
-not just decisive moments, but a *sacrifice* (giving up real material) that
-still holds up under engine review as an objectively strong try, in a
-position that wasn't already trivially winning. Writes brilliancies.json,
-which index.html's "Brilliant Moves" section turns into click-to-solve
-puzzles (find the move yourself before revealing the answer).
+Runs Stockfish over every ply of every Sunday arena game, once, and gets
+two things out of that single pass:
+
+  - Brilliancies: genuine sacrifices that still hold up under review, in a
+    position that wasn't already trivially winning. Writes brilliancies.json,
+    which index.html's "Brilliant Moves" section turns into click-to-solve
+    puzzles.
+  - Full-game accuracy: average centipawn loss, a move-quality breakdown
+    (best/good/inaccuracy/mistake/blunder) per side, and the eval curve for
+    the whole game (used for the swing chart in the match log). Writes
+    game_analysis.json.
+
+Centipawn loss per move is the standard, engine-agnostic way analysis tools
+measure move quality: how much worse the position got for the mover than
+engine review says it should have, comparing the position's eval right
+before the move to right after it (both from the mover's own point of
+view), floored at zero. It is not chess.com's own (proprietary, win%-based)
+accuracy metric -- this is the older, simpler measure most open chess
+tools use, and it is what the numbers on this site mean.
+
+Each ply needs exactly one fresh Stockfish call: the position right after
+a move is the exact same position as right before the next one, just with
+the other side to move, so that single evaluation (sign-flipped) does
+double duty as both "after" for this ply and "before" for the next. The
+original version of this script called Stockfish twice per ply without
+noticing the two calls were evaluating the same position from opposite
+sides -- fixing that roughly doubled how much game we can afford to
+analyze per second of engine time, which is what made full-game (not just
+post-opening) analysis affordable.
 
 Incremental by design: games already analyzed (tracked by id, right in
 brilliancies.json) are skipped on every later run, so the GitHub Actions
 workflow can call this after every refresh without redoing work -- only
-brand-new games get analyzed. The very first run analyzes the whole
-Hopen Arena history; every run after that only sees whatever's new.
+brand-new games get analyzed.
 
 Needs `stockfish` on PATH (the GitHub Actions workflow apt-installs it)
 and games.json + the PGN scratch cache (.game_pgns_cache.json) that
@@ -39,6 +61,7 @@ from config import USERNAME_TO_PERSON, DISPLAY_NAMES
 GAMES_FILE = "games.json"
 PGN_CACHE_FILE = ".game_pgns_cache.json"
 OUT_FILE = "brilliancies.json"
+ANALYSIS_OUT_FILE = "game_analysis.json"
 
 PLY_TIME_LIMIT = 0.25       # seconds per position -- the main runtime lever
 SKIP_FIRST_PLIES = 10       # brilliancies don't happen in opening theory
@@ -49,6 +72,19 @@ MIN_MATERIAL_RISKED = 2     # at least a minor piece -- no pawn pokes
 
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
+# Centipawn-loss-per-move thresholds for the move-quality breakdown. A
+# single move's loss is capped before averaging so one blundered-into-mate
+# doesn't blow out a whole game's average.
+CPL_CAP = 1000
+CPL_BUCKETS = [(10, "best"), (50, "good"), (100, "inaccuracy"), (300, "mistake")]
+
+
+def classify_loss(loss):
+    for threshold, label in CPL_BUCKETS:
+        if loss < threshold:
+            return label
+    return "blunder"
+
 
 def person_for(username):
     return USERNAME_TO_PERSON.get(username.lower(), username.lower())
@@ -57,72 +93,112 @@ def person_for(username):
 def find_engine():
     path = shutil.which("stockfish")
     if not path:
-        print("! stockfish not found on PATH -- skipping brilliancy analysis this run.", file=sys.stderr)
+        print("! stockfish not found on PATH -- skipping analysis this run.", file=sys.stderr)
         return None
     return path
 
 
 def analyze_game(engine, game_meta, pgn_text):
-    """Returns a list of brilliancy dicts found in this one game."""
+    """Returns (brilliancies, analysis) for one game: the brilliancy
+    candidates found (a list, same shape as before), and a full accuracy
+    breakdown for both sides (None if the PGN didn't parse)."""
     found = []
     game = chess.pgn.read_game(io.StringIO(pgn_text))
     if game is None:
-        return found
+        return found, None
+
     board = game.board()
     ply = 0
+    sides = {
+        chess.WHITE: {"losses": [], "best": 0, "good": 0, "inaccuracy": 0, "mistake": 0, "blunder": 0},
+        chess.BLACK: {"losses": [], "best": 0, "good": 0, "inaccuracy": 0, "mistake": 0, "blunder": 0},
+    }
+    eval_curve = []  # eval after each ply, from White's POV -- the swing chart
+    cp_before = None  # position eval, from the mover-to-move's POV; reused from the previous ply's result
+
     for move in game.mainline_moves():
         ply += 1
-        if ply <= SKIP_FIRST_PLIES:
-            board.push(move)
-            continue
-
         mover_color = board.turn
-        fen_before = board.fen()
-        info_before = engine.analyse(board, chess.engine.Limit(time=PLY_TIME_LIMIT))
-        cp_before = info_before["score"].pov(mover_color).score(mate_score=10000)
 
+        if cp_before is None:
+            # Only needed once, for the very first ply of the game -- every
+            # ply after this reuses the previous ply's post-move eval.
+            info = engine.analyse(board, chess.engine.Limit(time=PLY_TIME_LIMIT))
+            cp_before = info["score"].pov(mover_color).score(mate_score=10000)
+
+        fen_before = board.fen()
         moved_piece = board.piece_at(move.from_square)
         captured_piece = board.piece_at(move.to_square)
         san = board.san(move)
         board.push(move)
 
         info_after = engine.analyse(board, chess.engine.Limit(time=PLY_TIME_LIMIT))
-        cp_after_mover = -info_after["score"].pov(board.turn).score(mate_score=10000)
+        # From here, board.turn is the side to move NEXT -- this is exactly
+        # the "before" eval that next ply needs, so it gets reused as-is.
+        cp_after_next_pov = info_after["score"].pov(board.turn).score(mate_score=10000)
+        cp_after_mover = -cp_after_next_pov
 
-        is_attacked = board.is_attacked_by(not mover_color, move.to_square)
-        risked = PIECE_VALUES.get(moved_piece.piece_type, 0) - (
-            PIECE_VALUES.get(captured_piece.piece_type, 0) if captured_piece else 0)
-        is_sac = is_attacked and moved_piece.piece_type != chess.PAWN and risked >= MIN_MATERIAL_RISKED
+        loss = max(0, min(CPL_CAP, cp_before - cp_after_mover))
+        bucket = sides[mover_color]
+        bucket["losses"].append(loss)
+        bucket[classify_loss(loss)] += 1
+        eval_curve.append(cp_after_mover if mover_color == chess.WHITE else -cp_after_mover)
 
-        if (is_sac
-                and cp_after_mover >= cp_before - SWING_TOLERANCE
-                and abs(cp_before) < MAX_EVAL_BEFORE
-                and cp_after_mover > MIN_EVAL_AFTER):
-            white_person = person_for(game_meta["whiteUsername"])
-            black_person = person_for(game_meta["blackUsername"])
-            mover_person = white_person if mover_color == chess.WHITE else black_person
-            opp_person = black_person if mover_color == chess.WHITE else white_person
-            found.append({
-                "id": f"{game_meta['gameId']}-{ply}",
-                "gameId": game_meta["gameId"],
-                "gameUrl": game_meta["gameUrl"],
-                "tournamentId": game_meta["tournamentId"],
-                "date": game_meta["date"],
-                "ply": ply,
-                "moveNumber": (ply + 1) // 2,
-                "mover": "white" if mover_color == chess.WHITE else "black",
-                "person": mover_person,
-                "displayName": DISPLAY_NAMES.get(mover_person, mover_person),
-                "opponentPerson": opp_person,
-                "opponentDisplayName": DISPLAY_NAMES.get(opp_person, opp_person),
-                "fenBefore": fen_before,
-                "correctSan": san,
-                "correctUci": move.uci(),
-                "evalBefore": cp_before,
-                "evalAfter": cp_after_mover,
-                "materialRisked": risked,
-            })
-    return found
+        if ply > SKIP_FIRST_PLIES:
+            is_attacked = board.is_attacked_by(not mover_color, move.to_square)
+            risked = PIECE_VALUES.get(moved_piece.piece_type, 0) - (
+                PIECE_VALUES.get(captured_piece.piece_type, 0) if captured_piece else 0)
+            is_sac = is_attacked and moved_piece.piece_type != chess.PAWN and risked >= MIN_MATERIAL_RISKED
+
+            if (is_sac
+                    and cp_after_mover >= cp_before - SWING_TOLERANCE
+                    and abs(cp_before) < MAX_EVAL_BEFORE
+                    and cp_after_mover > MIN_EVAL_AFTER):
+                white_person = person_for(game_meta["whiteUsername"])
+                black_person = person_for(game_meta["blackUsername"])
+                mover_person = white_person if mover_color == chess.WHITE else black_person
+                opp_person = black_person if mover_color == chess.WHITE else white_person
+                found.append({
+                    "id": f"{game_meta['gameId']}-{ply}",
+                    "gameId": game_meta["gameId"],
+                    "gameUrl": game_meta["gameUrl"],
+                    "tournamentId": game_meta["tournamentId"],
+                    "date": game_meta["date"],
+                    "ply": ply,
+                    "moveNumber": (ply + 1) // 2,
+                    "mover": "white" if mover_color == chess.WHITE else "black",
+                    "person": mover_person,
+                    "displayName": DISPLAY_NAMES.get(mover_person, mover_person),
+                    "opponentPerson": opp_person,
+                    "opponentDisplayName": DISPLAY_NAMES.get(opp_person, opp_person),
+                    "fenBefore": fen_before,
+                    "correctSan": san,
+                    "correctUci": move.uci(),
+                    "evalBefore": cp_before,
+                    "evalAfter": cp_after_mover,
+                    "materialRisked": risked,
+                })
+
+        cp_before = cp_after_next_pov
+
+    def summarize(color):
+        b = sides[color]
+        n = len(b["losses"])
+        return {
+            "moves": n,
+            "avgCpLoss": round(sum(b["losses"]) / n, 1) if n else None,
+            "best": b["best"], "good": b["good"], "inaccuracy": b["inaccuracy"],
+            "mistake": b["mistake"], "blunder": b["blunder"],
+        }
+
+    analysis = None
+    if eval_curve:
+        analysis = {
+            "white": summarize(chess.WHITE),
+            "black": summarize(chess.BLACK),
+            "evalCurve": eval_curve,
+        }
+    return found, analysis
 
 
 def main():
@@ -139,7 +215,14 @@ def main():
             existing = json.load(f)
     else:
         existing = {"analyzedGameIds": [], "brilliancies": []}
+    if os.path.exists(ANALYSIS_OUT_FILE):
+        with open(ANALYSIS_OUT_FILE) as f:
+            existing_analysis = json.load(f)
+    else:
+        existing_analysis = {"analyzedGameIds": [], "games": {}}
 
+    # brilliancies.json is the checkpoint of record for "already analyzed" --
+    # both files are written together every run, so they stay in lockstep.
     analyzed = set(existing.get("analyzedGameIds", []))
     to_analyze = [g for g in games_data.get("games", []) if g["id"] not in analyzed and g["id"] in pgn_by_id]
 
@@ -151,10 +234,11 @@ def main():
     if not engine_path:
         return
 
-    print(f"Analyzing {len(to_analyze)} new game(s) for brilliancies "
+    print(f"Analyzing {len(to_analyze)} new game(s) "
           f"(skipping {len(analyzed)} already done)...")
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
     new_brilliancies = []
+    new_analysis = {}
     try:
         for g in to_analyze:
             meta = {
@@ -163,13 +247,15 @@ def main():
             }
             pgn_text = pgn_by_id[g["id"]]
             try:
-                found = analyze_game(engine, meta, pgn_text)
+                found, analysis = analyze_game(engine, meta, pgn_text)
             except Exception as e:
                 print(f"  ! error analyzing {g['id']}: {e}", file=sys.stderr)
-                found = []
+                found, analysis = [], None
             if found:
                 print(f"  + {g['id']}: {len(found)} brilliancy candidate(s)")
             new_brilliancies.extend(found)
+            if analysis:
+                new_analysis[g["id"]] = analysis
             analyzed.add(g["id"])
     finally:
         engine.quit()
@@ -187,6 +273,18 @@ def main():
 
     print(f"\nWrote {OUT_FILE}: {len(all_brilliancies)} total brilliancies "
           f"({len(new_brilliancies)} new), {len(analyzed)} games analyzed so far.")
+
+    all_analysis = {**existing_analysis.get("games", {}), **new_analysis}
+    analysis_out = {
+        "generatedAt": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "analyzedGameIds": sorted(analyzed),
+        "games": all_analysis,
+    }
+    with open(ANALYSIS_OUT_FILE, "w") as f:
+        json.dump(analysis_out, f, indent=None)
+
+    print(f"Wrote {ANALYSIS_OUT_FILE}: {len(all_analysis)} games with full move-accuracy data "
+          f"({len(new_analysis)} new).")
 
 
 if __name__ == "__main__":

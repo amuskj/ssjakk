@@ -658,9 +658,11 @@
   .rdot.faded { opacity: 0.28; }
   .rline.arena-line { stroke-width: 3.25px; }
   .rdot.arena-dot { stroke-width: 2px; stroke: var(--surface); }
+  .corr-dot { fill: var(--accent); fill-opacity: 0.6; stroke: var(--surface); stroke-width: 1px; cursor: pointer; }
+  .corr-dot:hover { fill-opacity: 0.9; }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto; margin-bottom: 28px; }
   .log-row {
-    display: grid; grid-template-columns: 60px 1fr auto auto; gap: 10px; align-items: center;
+    display: grid; grid-template-columns: 60px 1fr auto 64px auto; gap: 10px; align-items: center;
     background: var(--surface); border: 1px solid var(--ring); border-radius: 11px; padding: 9px 12px; font-size: 12px;
   }
   .log-row .lg-date { color: var(--ink-mute); font-size: 11px; white-space: nowrap; }
@@ -668,6 +670,10 @@
   .log-row .lg-meta { font-size: 10.5px; color: var(--ink-mute); white-space: nowrap; }
   .log-row a.lg-link { color: var(--accent); text-decoration: none; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .log-row a.lg-link:hover { text-decoration: underline; }
+  .log-row .lg-spark { display: flex; align-items: center; }
+  .spark-svg { width: 60px; height: 18px; display: block; }
+  .spark-mid { stroke: var(--ring); stroke-width: 1px; }
+  .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.4px; }
   @media (max-width: 640px) {
     .log-row { grid-template-columns: 1fr; }
     .log-row .lg-date { order: -1; }
@@ -940,6 +946,18 @@
     <div class="section-label">Openings</div>
     <div id="trendsOpenings" class="openings-wrap"></div>
 
+    <div class="section-label">Rating gap vs. accuracy gap &middot; do higher-rated players really play more accurately?</div>
+    <div class="graph-card" id="trendsCorrelationCard" style="margin-bottom:28px;">
+      <div class="graph-head">
+        <h2>Accuracy vs. rating</h2>
+        <span class="hint" id="corrStat"></span>
+      </div>
+      <div class="chart-wrap" id="trendsCorrelationWrap">
+        <svg id="vizCorrelation"></svg>
+        <div class="tooltip" id="tooltipCorrelation"></div>
+      </div>
+    </div>
+
     <div class="section-label">Club records</div>
     <div id="trendsBadges" class="badge-grid"></div>
 
@@ -958,8 +976,10 @@ let bmState = { idx: 0, list: [], chessGame: null, selected: null, solved: new S
 let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
+let GAME_ANALYSIS = null;
 let gamesLoadAttempted = false;
 let ratingsLoadAttempted = false;
+let gameAnalysisLoadAttempted = false;
 let NAME_MAP = {};
 let sundayMode = 'podium';
 const graphsBuilt = {};
@@ -1102,8 +1122,12 @@ function ensureGraph(tab) {
     if (!graphsBuilt.trendsRating && gamesLoadAttempted && ratingsLoadAttempted) {
       buildRatingChart(GAMES || [], RATINGS || { players: {}, timeClasses: [] });
       graphsBuilt.trendsRating = true;
-      graphsBuilt.trends = true;
     }
+    if (!graphsBuilt.trendsCorrelation && gameAnalysisLoadAttempted) {
+      buildCorrelationChart(GAME_ANALYSIS || { games: {} }, GAMES || []);
+      graphsBuilt.trendsCorrelation = true;
+    }
+    if (graphsBuilt.trendsRating && graphsBuilt.trendsCorrelation) graphsBuilt.trends = true;
   }
 }
 
@@ -1143,6 +1167,28 @@ async function boot() {
       '<div class="empty-state"><div class="icon">&#9823;&#65039;</div><h3>No game log yet</h3><p>Run build_games.py after a session and push games.json to fill this tab in.</p></div>';
   }
   gamesLoadAttempted = true;
+  ensureGraph('trends');
+
+  // ---------- Game accuracy (Stockfish eval curves -- independent of d3) ----------
+  try {
+    const res = await fetch('./game_analysis.json', {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching game_analysis.json');
+    GAME_ANALYSIS = await res.json();
+    const byId = GAME_ANALYSIS.games || {};
+    (GAMES || []).forEach(g => {
+      const a = byId[g.id];
+      if (!a) return;
+      g.analysis = a;
+      const curveAcc = gameAccuracyFromCurve(a.evalCurve);
+      if (curveAcc) { g.accuracyWhite = curveAcc.white; g.accuracyBlack = curveAcc.black; }
+    });
+    renderMatchLog(GAMES || []);
+    renderAccuracyBadges(GAME_ANALYSIS, GAMES || []);
+  } catch (e) {
+    console.error(e);
+    GAME_ANALYSIS = { analyzedGameIds: [], games: {} };
+  }
+  gameAnalysisLoadAttempted = true;
   ensureGraph('trends');
 
   // ---------- Brilliant moves (self-contained -- no chart library needed) ----------
@@ -1895,6 +1941,7 @@ function matchLogRowHtml(g) {
     <span class="lg-date">${formatDate(g.date)}</span>
     <span class="lg-players"><span class="chip ${wCls}">${g.white.displayName}</span> vs <span class="chip ${bCls}">${g.black.displayName}</span></span>
     <span class="lg-meta">${opening} &middot; ${g.moveCount}mv${accBits.length ? ' &middot; ' + accBits.join(' / ') : ''}</span>
+    <span class="lg-spark">${g.analysis ? evalSparkline(g.analysis.evalCurve) : ''}</span>
     <a class="lg-link" href="${g.url}" target="_blank" rel="noopener noreferrer">Watch &rarr;</a>
   </div>`;
 }
@@ -2094,6 +2141,185 @@ function renderTrendsBadges(games) {
   }
 
   document.getElementById('trendsBadges').innerHTML = cards.join('');
+}
+
+// ---------- Stockfish accuracy: Lichess's open, published formula ----------
+// https://lichess.org/page/accuracy -- turns a centipawn eval into a 0-100
+// "win probability", then scores a move by how much that probability
+// dropped for the side who just played it. This is Lichess's own public
+// formula, not chess.com's proprietary one. Real Lichess scoring uses a
+// volatility-weighted windowed mean; this site uses a plain average of
+// per-move accuracy across the game, which is a simplification of that.
+function winPct(cp) {
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+}
+function moveAccuracy(winBefore, winAfter) {
+  const drop = winBefore - winAfter;
+  const acc = 103.1668 * Math.exp(-0.04354 * drop) - 3.1669;
+  return Math.max(0, Math.min(100, acc));
+}
+function gameAccuracyFromCurve(evalCurve) {
+  if (!evalCurve || !evalCurve.length) return null;
+  const accs = { white: [], black: [] };
+  let prevWhitePov = 0;
+  evalCurve.forEach((afterWhitePov, idx) => {
+    const ply = idx + 1;
+    const moverIsWhite = ply % 2 === 1;
+    const beforeMoverPov = moverIsWhite ? prevWhitePov : -prevWhitePov;
+    const afterMoverPov = moverIsWhite ? afterWhitePov : -afterWhitePov;
+    const acc = moveAccuracy(winPct(beforeMoverPov), winPct(afterMoverPov));
+    (moverIsWhite ? accs.white : accs.black).push(acc);
+    prevWhitePov = afterWhitePov;
+  });
+  const mean = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+  return { white: mean(accs.white), black: mean(accs.black) };
+}
+
+// A tiny inline eval-swing sparkline for each match-log row -- clamped at
+// +/-500cp so one blowout game doesn't flatten every other line on the page.
+function evalSparkline(curve) {
+  if (!curve || curve.length < 2) return '';
+  const w = 60, h = 18, cap = 500;
+  const step = w / (curve.length - 1);
+  const pts = curve.map((v, i) => {
+    const clamped = Math.max(-cap, Math.min(cap, v));
+    const y = h / 2 - (clamped / cap) * (h / 2 - 1);
+    return `${(i * step).toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg class="spark-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <line class="spark-mid" x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}"></line>
+    <polyline class="spark-line" points="${pts}"></polyline>
+  </svg>`;
+}
+
+function pearsonR(xs, ys) {
+  const n = xs.length;
+  if (n < 2) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+  }
+  const denom = Math.sqrt(dx2 * dy2);
+  return denom ? num / denom : null;
+}
+
+// ---------- Trends: accuracy & blunder badges (from Stockfish move analysis) ----------
+// Appended to the same badge grid as renderTrendsBadges/renderBrilliancyBadge,
+// once game_analysis.json loads. avgCpLoss here is weighted by move count
+// (not an average of each game's own average), so a long grind counts for
+// more than a handful of forced moves in a quick loss. Centipawn loss, not
+// chess.com's own accuracy metric -- see find_brilliancies.py for why.
+function renderAccuracyBadges(gameAnalysisData, games) {
+  const byId = (gameAnalysisData && gameAnalysisData.games) || {};
+  const byPerson = {};
+  games.forEach(g => {
+    const a = byId[g.id];
+    if (!a) return;
+    [['white', g.white.person], ['black', g.black.person]].forEach(([side, person]) => {
+      const s = a[side];
+      if (!s || !s.moves) return;
+      const acc = byPerson[person] || (byPerson[person] = { lossSum: 0, moves: 0, blunders: 0, games: 0 });
+      acc.lossSum += s.avgCpLoss * s.moves;
+      acc.moves += s.moves;
+      acc.blunders += s.blunder;
+      acc.games += 1;
+    });
+  });
+
+  const MIN_GAMES = 5;
+  const eligible = Object.entries(byPerson).filter(([, s]) => s.games >= MIN_GAMES);
+  if (!eligible.length) return;
+
+  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
+
+  const mostAccurate = [...eligible].sort((a, b) => (a[1].lossSum / a[1].moves) - (b[1].lossSum / b[1].moves)).slice(0, 5);
+  const accurateRows = mostAccurate.map(([p, s], i) => rankRow(i, nameOf(p), `${(s.lossSum / s.moves).toFixed(0)}cp avg loss &middot; ${s.games} games`)).join('');
+
+  const blunderProne = [...eligible].sort((a, b) => (b[1].blunders / b[1].games) - (a[1].blunders / a[1].games)).slice(0, 5);
+  const blunderRows = blunderProne.map(([p, s], i) => rankRow(i, nameOf(p), `${(s.blunders / s.games).toFixed(1)}/game &middot; ${s.games} games`)).join('');
+
+  const cards = [
+    `<div class="badge-card"><div class="b-label">Most accurate (lowest avg. loss)</div><div class="b-list">${accurateRows}</div></div>`,
+    `<div class="badge-card"><div class="b-label">Blunder-prone</div><div class="b-list">${blunderRows}</div></div>`,
+  ];
+  const grid = document.getElementById('trendsBadges');
+  if (grid) grid.insertAdjacentHTML('beforeend', cards.join(''));
+}
+
+// ---------- Trends: rating-gap vs accuracy-gap correlation ----------
+// For every analyzed, rated game: how big was the rating gap, and how much
+// more accurately (per the Lichess-formula accuracy above) did the
+// higher-rated player actually play? A positive slope is the "ratings mean
+// something" pattern; the Pearson r in the header says how tight it really
+// is in this club's own games, rather than assuming it.
+function buildCorrelationChart(gameAnalysisData, games) {
+  const wrap = document.getElementById('trendsCorrelationWrap');
+  const svg = d3.select('#vizCorrelation');
+  const tooltip = document.getElementById('tooltipCorrelation');
+  const statEl = document.getElementById('corrStat');
+  const byId = (gameAnalysisData && gameAnalysisData.games) || {};
+
+  const points = [];
+  games.forEach(g => {
+    const a = byId[g.id];
+    if (!a || g.white.rating == null || g.black.rating == null) return;
+    const curveAcc = gameAccuracyFromCurve(a.evalCurve);
+    if (!curveAcc || curveAcc.white == null || curveAcc.black == null) return;
+    const whiteHigher = g.white.rating >= g.black.rating;
+    const ratingGap = Math.abs(g.white.rating - g.black.rating);
+    const higherAcc = whiteHigher ? curveAcc.white : curveAcc.black;
+    const lowerAcc = whiteHigher ? curveAcc.black : curveAcc.white;
+    points.push({ g, ratingGap, accuracyGap: higherAcc - lowerAcc });
+  });
+
+  svg.selectAll('*').remove();
+  let emptyEl = wrap.querySelector('.empty-state');
+
+  if (points.length < 8) {
+    svg.style('display', 'none');
+    if (!emptyEl) { emptyEl = document.createElement('div'); emptyEl.className = 'empty-state'; wrap.appendChild(emptyEl); }
+    emptyEl.innerHTML = '<p>Not enough analyzed games yet for a meaningful correlation.</p>';
+    statEl.textContent = '';
+    return;
+  }
+  svg.style('display', null);
+  if (emptyEl) emptyEl.remove();
+
+  const r = pearsonR(points.map(p => p.ratingGap), points.map(p => p.accuracyGap));
+  statEl.textContent = r == null ? '' : `r = ${r.toFixed(2)} · ${points.length} games`;
+
+  const width = wrap.clientWidth, height = wrap.clientHeight;
+  const margin = { top: 16, right: 20, bottom: 30, left: 46 };
+  const x = d3.scaleLinear().domain([0, d3.max(points, p => p.ratingGap) * 1.05]).range([margin.left, width - margin.right]);
+  const y = d3.scaleLinear().domain(d3.extent(points, p => p.accuracyGap)).nice().range([height - margin.bottom, margin.top]);
+
+  svg.attr('viewBox', `0 0 ${width} ${height}`);
+  svg.append('g').attr('class', 'raxis rgrid').attr('transform', `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y).ticks(5).tickSize(-(width - margin.left - margin.right)).tickSizeOuter(0));
+  svg.append('g').attr('class', 'raxis').attr('transform', `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0));
+
+  svg.append('line')
+    .attr('x1', margin.left).attr('x2', width - margin.right)
+    .attr('y1', y(0)).attr('y2', y(0))
+    .attr('stroke', 'var(--ring-strong)').attr('stroke-dasharray', '3,3');
+
+  svg.append('g').selectAll('circle').data(points).join('circle')
+    .attr('class', 'corr-dot')
+    .attr('cx', d => x(d.ratingGap)).attr('cy', d => y(d.accuracyGap)).attr('r', 4.5)
+    .on('mousemove', (ev, d) => {
+      const g = d.g;
+      const rect = wrap.getBoundingClientRect();
+      tooltip.innerHTML = `<b>${g.white.displayName}</b> vs <b>${g.black.displayName}</b><br>` +
+        `${d.ratingGap}-pt rating gap &middot; ${d.accuracyGap >= 0 ? '+' : ''}${d.accuracyGap.toFixed(1)} accuracy gap<br>` +
+        `<span class="muted">${formatDate(g.date)}</span>`;
+      tooltip.style.opacity = 1;
+      tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
+      tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
+    })
+    .on('mouseleave', () => tooltip.style.opacity = 0);
 }
 
 // ---------- Trends: brilliant-moves leaderboard badge ----------
