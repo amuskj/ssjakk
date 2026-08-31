@@ -113,15 +113,22 @@ def material_diff(board, color):
 
 
 def material_recovers(board_after_move, moves, idx, mover_color, diff_before):
-    """True if the material given up on this move comes back to roughly
-    even within the game's own next several moves -- the signature of an
-    ordinary trade (give a piece, get one back) rather than a genuine,
-    lasting sacrifice. `board_after_move` already has `moves[idx]` applied;
-    it's copied here so the caller's board keeps streaming forward untouched."""
+    """True if the material given up on this move comes back to roughly the
+    SAME balance as before it (a narrow band around diff_before) within the
+    game's own next several moves -- the signature of an ordinary trade
+    (give a piece, get one back, net change ~0) rather than a genuine
+    sacrifice. This must be a band, not just "at least as good as before":
+    a sacrifice that pays off even better than break-even (a deflection or
+    combination that nets MORE material a few moves later) is a real
+    tactical success, not a wash, and an earlier version of this check
+    wrongly rejected those too by only checking one side of diff_before.
+    `board_after_move` already has `moves[idx]` applied; it's copied here
+    so the caller's board keeps streaming forward untouched."""
     lookahead = board_after_move.copy()
     for j in range(idx + 1, min(idx + 1 + SAC_LOOKAHEAD_PLIES, len(moves))):
         lookahead.push(moves[j])
-        if material_diff(lookahead, mover_color) >= diff_before - SAC_RECOVERY_MARGIN:
+        diff = material_diff(lookahead, mover_color)
+        if diff_before - SAC_RECOVERY_MARGIN <= diff <= diff_before + SAC_RECOVERY_MARGIN:
             return True
     return False
 

@@ -411,6 +411,12 @@
     font-size: 13px; color: var(--ink-mute); opacity: 0.55;
     text-transform: none; letter-spacing: normal;
   }
+  .wip-pill {
+    display: inline-flex; align-items: center; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--gold); background: var(--gold-wash);
+    border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--ring));
+    padding: 2px 7px; border-radius: 999px; margin-left: 2px;
+  }
 
   /* ---------- upset callout ---------- */
   .upset-card {
@@ -433,6 +439,7 @@
   .upset-card .meta { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; }
   .upset-card a { color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .upset-card a:hover { text-decoration: underline; }
+  .upset-card .card-spark { flex-shrink: 0; }
 
   /* ---------- special events (one-off tournaments, kept out of the Hopen podium) ---------- */
   .special-events-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 28px; }
@@ -659,6 +666,7 @@
   .rline.arena-line { stroke-width: 3.25px; }
   .rdot.arena-dot { stroke-width: 2px; stroke: var(--surface); }
   .corr-dot { fill: var(--accent); fill-opacity: 0.6; stroke: var(--surface); stroke-width: 1px; cursor: pointer; }
+  .corr-dot-hint { fill: var(--ink-mute); }
   .corr-dot:hover { fill-opacity: 0.9; }
   .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto; margin-bottom: 28px; }
   .log-row {
@@ -692,6 +700,37 @@
   .badge-card .b-sub { font-size: 11.5px; color: var(--ink-dim); margin-top: 4px; }
   .badge-card a { color: var(--accent); text-decoration: none; }
   .badge-card a:hover { text-decoration: underline; }
+  .b-list-row.clickable { cursor: pointer; border-radius: 6px; margin: 0 -6px; padding: 2px 6px; transition: background 0.12s ease; }
+  .b-list-row.clickable:hover { background: var(--surface-2); }
+  .b-show-all {
+    display: block; width: 100%; text-align: center; margin-top: 10px; padding: 6px;
+    border: none; background: var(--surface-2); border-radius: 8px; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: var(--accent); font-family: var(--sans);
+  }
+  .b-show-all:hover { background: var(--ring); }
+
+  /* ---------- records drill-down modal ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(20,20,18,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; padding: 24px;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal-card {
+    background: var(--surface); border-radius: 16px; box-shadow: var(--shadow);
+    max-width: 620px; width: 100%; max-height: 82vh; overflow-y: auto;
+    padding: 20px 22px;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .modal-title { font-family: var(--disp); font-size: 15px; font-weight: 700; }
+  .modal-close {
+    border: none; background: var(--surface-2); width: 28px; height: 28px; border-radius: 999px;
+    cursor: pointer; font-size: 16px; line-height: 1; color: var(--ink-dim); flex-shrink: 0;
+  }
+  .modal-close:hover { background: var(--ring); }
+  .modal-list .b-list-row { padding: 6px; border-bottom: 1px solid var(--ring); }
+  .modal-list .b-list-row:last-child { border-bottom: none; }
+  .modal-loglist { display: flex; flex-direction: column; gap: 6px; }
 
   /* ---------- trends: ranked record lists ---------- */
   .b-list { display: flex; flex-direction: column; gap: 7px; }
@@ -894,31 +933,6 @@
 
   <!-- TRENDS -->
   <div class="panel" id="panel-trends">
-    <div class="section-label">Brilliant moves &middot; find the club's best sacrifices yourself</div>
-    <div class="bm-card" id="brilliantMoves">
-      <div class="bm-head">
-        <div class="bm-title" id="bmTitle">Loading&hellip;</div>
-        <div class="bm-nav">
-          <button id="bmPrev" title="Previous puzzle" aria-label="Previous puzzle">&#8592;</button>
-          <span id="bmCounter"></span>
-          <button id="bmNext" title="Next puzzle" aria-label="Next puzzle">&#8594;</button>
-        </div>
-      </div>
-      <div class="bm-body">
-        <div class="bm-board" id="bmBoard"></div>
-        <div class="bm-info">
-          <div class="bm-prompt" id="bmPrompt"></div>
-          <div class="bm-meta" id="bmMeta"></div>
-          <div class="bm-status" id="bmStatus"></div>
-          <div class="bm-actions">
-            <button class="bm-btn ghost" id="bmReveal" type="button">Show the move</button>
-            <a class="bm-btn ghost" id="bmWatch" href="#" target="_blank" rel="noopener">Watch the game &#8599;</a>
-          </div>
-        </div>
-      </div>
-      <div class="bm-credit">Pieces by <a href="https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces" target="_blank" rel="noopener">Cburnett</a>, CC BY-SA 3.0 / GPL</div>
-    </div>
-
     <div class="section-label">Rating over time &middot; chess.com history, with a Hopen Arena overlay</div>
     <div class="graph-card" id="trendsRatingCard" style="margin-bottom:28px;">
       <div class="graph-head">
@@ -965,7 +979,42 @@
     <div class="log-toolbar" id="trendsLogFilter"></div>
     <div class="log-list" id="trendsLog"></div>
 
+    <div class="section-label">Brilliant moves &middot; find the club's best sacrifices yourself<span class="wip-pill">Work in progress</span></div>
+    <div class="bm-card" id="brilliantMoves">
+      <div class="bm-head">
+        <div class="bm-title" id="bmTitle">Loading&hellip;</div>
+        <div class="bm-nav">
+          <button id="bmPrev" title="Previous puzzle" aria-label="Previous puzzle">&#8592;</button>
+          <span id="bmCounter"></span>
+          <button id="bmNext" title="Next puzzle" aria-label="Next puzzle">&#8594;</button>
+        </div>
+      </div>
+      <div class="bm-body">
+        <div class="bm-board" id="bmBoard"></div>
+        <div class="bm-info">
+          <div class="bm-prompt" id="bmPrompt"></div>
+          <div class="bm-meta" id="bmMeta"></div>
+          <div class="bm-status" id="bmStatus"></div>
+          <div class="bm-actions">
+            <button class="bm-btn ghost" id="bmReveal" type="button">Show the move</button>
+            <a class="bm-btn ghost" id="bmWatch" href="#" target="_blank" rel="noopener">Watch the game &#8599;</a>
+          </div>
+        </div>
+      </div>
+      <div class="bm-credit">Pieces by <a href="https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces" target="_blank" rel="noopener">Cburnett</a>, CC BY-SA 3.0 / GPL</div>
+    </div>
+
     <div class="foot" id="trendsFoot"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="recordsModalOverlay" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="recordsModalTitle"></div>
+      <button class="modal-close" id="recordsModalClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="recordsModalBody"></div>
   </div>
 </div>
 
@@ -1183,6 +1232,8 @@ async function boot() {
       if (curveAcc) { g.accuracyWhite = curveAcc.white; g.accuracyBlack = curveAcc.black; }
     });
     renderMatchLog(GAMES || []);
+    renderUpsets(GAMES || []);
+    renderSweatyGames(GAMES || []);
     renderAccuracyBadges(GAME_ANALYSIS, GAMES || []);
   } catch (e) {
     console.error(e);
@@ -1201,7 +1252,7 @@ async function boot() {
       if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching brilliancies.json');
       BRILLIANCIES = await res.json();
       initBrilliantMoves(BRILLIANCIES);
-      renderBrilliancyBadge(BRILLIANCIES);
+      renderBrilliancyBadge(BRILLIANCIES, GAMES || []);
     } catch (e) {
       console.error(e);
       document.getElementById('brilliantMoves').innerHTML =
@@ -1992,6 +2043,7 @@ function renderUpsets(games) {
         <div class="line"><span class="chip win">${u.winnerSide.displayName}</span> <span class="r">(${u.winnerSide.rating})</span> upset <span class="chip loss">${u.loserSide.displayName}</span> <span class="r">(${u.loserSide.rating})</span></div>
         <div class="meta">${u.gap}-point gap &middot; ${formatDate(u.g.date)}</div>
       </div>
+      <span class="card-spark">${u.g.analysis ? evalSparkline(u.g.analysis.evalCurve) : ''}</span>
       <a href="${u.g.url}" target="_blank" rel="noopener noreferrer">Watch game &rarr;</a>
     </div>`).join('') || '<div class="empty-state"><p>No upsets recorded yet.</p></div>';
 }
@@ -2010,14 +2062,31 @@ function renderSweatyGames(games) {
         <div class="line">${g.white.displayName} <span class="r">${g.finalClockWhite.toFixed(1)}s left</span> vs ${g.black.displayName} <span class="r">${g.finalClockBlack.toFixed(1)}s left</span></div>
         <div class="meta">${g.moveCount} moves &middot; ${formatDate(g.date)}</div>
       </div>
+      <span class="card-spark">${g.analysis ? evalSparkline(g.analysis.evalCurve) : ''}</span>
       <a href="${g.url}" target="_blank" rel="noopener noreferrer">Watch game &rarr;</a>
     </div>`).join('') || '<div class="empty-state"><p>Not enough clock data yet.</p></div>';
 }
 
 // ---------- Trends: openings breakdown (donut + ranked list) ----------
+// Chess.com's ECO-derived names are very fine-grained (87 distinct exact
+// strings across 158 games here, most appearing once or twice), so grouping
+// on the exact name buried almost everything under "Other". Instead, group
+// by the opening FAMILY: keep words up through the first family-terminal
+// keyword (Defense/Opening/Game/Gambit/...), which is where ECO naming
+// puts the recognizable name ("Sicilian Defense", "Four Knights Game") --
+// everything after that point is a specific variation, not the family.
+const OPENING_FAMILY_TERMINALS = new Set(['Defense', 'Defence', 'Opening', 'Game', 'Gambit', 'Attack', 'System', 'Countergambit']);
+function openingFamily(name) {
+  if (!name) return null;
+  const words = name.split(' ');
+  for (let i = 0; i < words.length; i++) {
+    if (OPENING_FAMILY_TERMINALS.has(words[i])) return words.slice(0, i + 1).join(' ');
+  }
+  return words.slice(0, 3).join(' ');
+}
 function renderOpenings(games) {
   const counts = {};
-  games.forEach(g => { if (g.openingName) counts[g.openingName] = (counts[g.openingName] || 0) + 1; });
+  games.forEach(g => { const fam = openingFamily(g.openingName); if (fam) counts[fam] = (counts[fam] || 0) + 1; });
   const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const total = entries.reduce((sum, [, c]) => sum + c, 0);
   const wrap = document.getElementById('trendsOpenings');
@@ -2061,84 +2130,143 @@ function renderOpenings(games) {
   }
 }
 
-// ---------- Trends: club-record badges (top-3 ranked lists) ----------
+// ---------- Trends: shared "records" modal -- full lists + game drill-downs ----------
+// Every badge card is built from a full ranked list (not pre-sliced), so a
+// "Show all" button can always reveal the rest, and rows that represent a
+// specific person or pairing carry a games() closure so clicking the row
+// opens the actual games behind that number (date, opening, eval swing,
+// a direct chess.com link) -- e.g. "Grudge matches -> Ludvig vs Isak" opens
+// the 16 games between them.
+let BADGE_REGISTRY = {};
+let badgeCardSeq = 0;
+
+function badgeRowHtml(id, idx, row) {
+  const clickable = row.games ? ' clickable' : '';
+  return `<div class="b-list-row${clickable}" data-badge-id="${id}" data-row-idx="${idx}"><span class="rk">${idx + 1}</span><span class="nm">${row.label}</span><span class="val">${row.value}</span></div>`;
+}
+
+function badgeCardHtml(title, rows, previewCount) {
+  if (!rows.length) return '';
+  const id = 'bc' + (badgeCardSeq++);
+  BADGE_REGISTRY[id] = { title, rows };
+  const rowsHtml = rows.slice(0, previewCount).map((r, i) => badgeRowHtml(id, i, r)).join('');
+  const moreHtml = rows.length > previewCount
+    ? `<button class="b-show-all" type="button" data-badge-id="${id}">Show all ${rows.length} &rarr;</button>` : '';
+  return `<div class="badge-card"><div class="b-label">${title}</div><div class="b-list">${rowsHtml}</div>${moreHtml}</div>`;
+}
+
+function openFullListModal(id) {
+  const entry = BADGE_REGISTRY[id];
+  if (!entry) return;
+  const rowsHtml = entry.rows.map((r, i) => badgeRowHtml(id, i, r)).join('');
+  showRecordsModal(entry.title, `<div class="b-list modal-list">${rowsHtml}</div>`);
+}
+
+function openRowGamesModal(id, idx) {
+  const entry = BADGE_REGISTRY[id];
+  const row = entry && entry.rows[idx];
+  if (!row || !row.games) return;
+  showRecordsModal(`${entry.title} &middot; ${row.label}`, gameListModalHtml(row.games()));
+}
+
+function gameListModalHtml(gms) {
+  if (!gms || !gms.length) return '<div class="empty-state"><p>No games found.</p></div>';
+  const sorted = [...gms].sort((a, b) => (b.endTime || 0) - (a.endTime || 0));
+  return `<div class="log-list modal-loglist">${sorted.map(matchLogRowHtml).join('')}</div>`;
+}
+
+function showRecordsModal(title, bodyHtml) {
+  document.getElementById('recordsModalTitle').innerHTML = title;
+  document.getElementById('recordsModalBody').innerHTML = bodyHtml;
+  document.getElementById('recordsModalOverlay').hidden = false;
+}
+function closeRecordsModal() {
+  document.getElementById('recordsModalOverlay').hidden = true;
+}
+document.addEventListener('click', ev => {
+  const showAllBtn = ev.target.closest('.b-show-all');
+  if (showAllBtn) { openFullListModal(showAllBtn.dataset.badgeId); return; }
+  const clickableRow = ev.target.closest('.b-list-row.clickable[data-badge-id]');
+  if (clickableRow) { openRowGamesModal(clickableRow.dataset.badgeId, +clickableRow.dataset.rowIdx); return; }
+  if (ev.target.id === 'recordsModalClose' || ev.target.id === 'recordsModalOverlay') closeRecordsModal();
+});
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeRecordsModal(); });
+
+// ---------- Trends: club-record badges (full ranked lists, expandable) ----------
 function renderTrendsBadges(games) {
   const cards = [];
-  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
 
-  // grudge matches: most-played pairs
+  // grudge matches: most-played pairs -- click a pair to see those games
   const pairCounts = {};
   games.forEach(g => {
     if (g.white.person === g.black.person) return;
     const key = [g.white.person, g.black.person].sort().join('|');
     pairCounts[key] = (pairCounts[key] || 0) + 1;
   });
-  const grudges = Object.entries(pairCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (grudges.length) {
-    const rows = grudges.map(([key, count], i) => {
-      const [p1, p2] = key.split('|');
-      return rankRow(i, `${nameOf(p1)} vs ${nameOf(p2)}`, `${count} games`);
-    }).join('');
-    cards.push(`<div class="badge-card"><div class="b-label">Grudge matches</div><div class="b-list">${rows}</div></div>`);
-  }
+  const grudgeRows = Object.entries(pairCounts).sort((a, b) => b[1] - a[1]).map(([key, count]) => {
+    const [p1, p2] = key.split('|');
+    return {
+      label: `${nameOf(p1)} vs ${nameOf(p2)}`,
+      value: `${count} games`,
+      games: () => games.filter(g => (g.white.person === p1 && g.black.person === p2) || (g.white.person === p2 && g.black.person === p1)),
+    };
+  });
+  cards.push(badgeCardHtml('Grudge matches', grudgeRows, 3));
 
   // longest games
   const real = games.filter(g => g.moveCount >= 2);
-  const longestTop = [...real].sort((a, b) => b.moveCount - a.moveCount).slice(0, 3);
-  if (longestTop.length) {
-    const rows = longestTop.map((g, i) => rankRow(i, `${g.white.displayName} vs ${g.black.displayName}`,
-      `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`)).join('');
-    cards.push(`<div class="badge-card"><div class="b-label">Longest games</div><div class="b-list">${rows}</div></div>`);
-  }
+  const longestRows = [...real].sort((a, b) => b.moveCount - a.moveCount).map(g => ({
+    label: `${g.white.displayName} vs ${g.black.displayName}`,
+    value: `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`,
+  }));
+  cards.push(badgeCardHtml('Longest games', longestRows, 3));
 
   // fastest decisive games
   const decisive = real.filter(g => g.result !== 'draw');
-  const shortestTop = [...decisive].sort((a, b) => a.moveCount - b.moveCount).slice(0, 3);
-  if (shortestTop.length) {
-    const rows = shortestTop.map((g, i) => rankRow(i, `${g.white.displayName} vs ${g.black.displayName}`,
-      `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`)).join('');
-    cards.push(`<div class="badge-card"><div class="b-label">Fastest decisive games</div><div class="b-list">${rows}</div></div>`);
-  }
+  const shortestRows = [...decisive].sort((a, b) => a.moveCount - b.moveCount).map(g => ({
+    label: `${g.white.displayName} vs ${g.black.displayName}`,
+    value: `${g.moveCount}mv &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`,
+  }));
+  cards.push(badgeCardHtml('Fastest decisive games', shortestRows, 3));
 
   // time-trouble survivors: won with the least clock left
-  const survivors = decisive
+  const survivorRows = decisive
     .map(g => ({ g, clock: g.result === 'white' ? g.finalClockWhite : g.finalClockBlack }))
     .filter(x => x.clock != null)
     .sort((a, b) => a.clock - b.clock)
-    .slice(0, 3);
-  if (survivors.length) {
-    const rows = survivors.map(({ g, clock }, i) => {
+    .map(({ g, clock }) => {
       const winner = g.result === 'white' ? g.white : g.black;
-      return rankRow(i, winner.displayName, `${clock.toFixed(1)}s &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>`);
-    }).join('');
-    cards.push(`<div class="badge-card"><div class="b-label">Time-trouble survivors</div><div class="b-list">${rows}</div></div>`);
-  }
+      return { label: winner.displayName, value: `${clock.toFixed(1)}s &middot; <a href="${g.url}" target="_blank" rel="noopener noreferrer">watch</a>` };
+    });
+  cards.push(badgeCardHtml('Time-trouble survivors', survivorRows, 3));
 
-  // longest win streaks within a single session (best streak per person)
+  // longest win streaks within a single session -- keep the actual games in
+  // the streak (not just its length) so it can be clicked into
   const streakMap = {};
   games.forEach(g => {
     [['white', g.white.person], ['black', g.black.person]].forEach(([side, person]) => {
       const key = g.tournamentId + '|' + person;
-      (streakMap[key] ||= []).push({ endTime: g.endTime, win: g.result === side });
+      (streakMap[key] ||= []).push({ endTime: g.endTime, win: g.result === side, game: g });
     });
   });
   const bestByPerson = {};
   for (const [key, arr] of Object.entries(streakMap)) {
     arr.sort((a, b) => (a.endTime || 0) - (b.endTime || 0));
-    let streak = 0, max = 0;
-    arr.forEach(x => { streak = x.win ? streak + 1 : 0; max = Math.max(max, streak); });
-    if (max < 2) continue;
-    const [tid, person] = key.split('|');
-    if (!bestByPerson[person] || max > bestByPerson[person].max) bestByPerson[person] = { person, tid, max };
+    let streak = [], max = [];
+    arr.forEach(x => {
+      if (x.win) { streak = [...streak, x.game]; if (streak.length > max.length) max = streak; }
+      else streak = [];
+    });
+    if (max.length < 2) continue;
+    const [, person] = key.split('|');
+    if (!bestByPerson[person] || max.length > bestByPerson[person].max.length) bestByPerson[person] = { person, max };
   }
-  const streakTop = Object.values(bestByPerson).sort((a, b) => b.max - a.max).slice(0, 3);
-  if (streakTop.length) {
-    const rows = streakTop.map((s, i) => {
-      const tg = games.find(g => g.tournamentId === s.tid);
-      return rankRow(i, nameOf(s.person), `${s.max} in a row${tg ? ' &middot; ' + formatDate(tg.date) : ''}`);
-    }).join('');
-    cards.push(`<div class="badge-card"><div class="b-label">Longest win streaks</div><div class="b-list">${rows}</div></div>`);
-  }
+  const streakRows = Object.values(bestByPerson).sort((a, b) => b.max.length - a.max.length).map(s => ({
+    label: nameOf(s.person),
+    value: `${s.max.length} in a row &middot; ${formatDate(s.max[s.max.length - 1].date)}`,
+    games: () => s.max,
+  }));
+  cards.push(badgeCardHtml('Longest win streaks', streakRows, 3));
 
   document.getElementById('trendsBadges').innerHTML = cards.join('');
 }
@@ -2232,20 +2360,18 @@ function renderAccuracyBadges(gameAnalysisData, games) {
   const eligible = Object.entries(byPerson).filter(([, s]) => s.games >= MIN_GAMES);
   if (!eligible.length) return;
 
-  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
+  const personGames = person => games.filter(g => byId[g.id] && (g.white.person === person || g.black.person === person));
 
-  const mostAccurate = [...eligible].sort((a, b) => (a[1].lossSum / a[1].moves) - (b[1].lossSum / b[1].moves)).slice(0, 5);
-  const accurateRows = mostAccurate.map(([p, s], i) => rankRow(i, nameOf(p), `${(s.lossSum / s.moves).toFixed(0)}cp avg loss &middot; ${s.games} games`)).join('');
+  const accurateRows = [...eligible].sort((a, b) => (a[1].lossSum / a[1].moves) - (b[1].lossSum / b[1].moves))
+    .map(([p, s]) => ({ label: nameOf(p), value: `${(s.lossSum / s.moves).toFixed(0)}cp avg loss &middot; ${s.games} games`, games: () => personGames(p) }));
 
-  const blunderProne = [...eligible].sort((a, b) => (b[1].blunders / b[1].games) - (a[1].blunders / a[1].games)).slice(0, 5);
-  const blunderRows = blunderProne.map(([p, s], i) => rankRow(i, nameOf(p), `${(s.blunders / s.games).toFixed(1)}/game &middot; ${s.games} games`)).join('');
+  const blunderRows = [...eligible].sort((a, b) => (b[1].blunders / b[1].games) - (a[1].blunders / a[1].games))
+    .map(([p, s]) => ({ label: nameOf(p), value: `${(s.blunders / s.games).toFixed(1)}/game &middot; ${s.games} games`, games: () => personGames(p) }));
 
-  const cards = [
-    `<div class="badge-card"><div class="b-label">Most accurate (lowest avg. loss)</div><div class="b-list">${accurateRows}</div></div>`,
-    `<div class="badge-card"><div class="b-label">Blunder-prone</div><div class="b-list">${blunderRows}</div></div>`,
-  ];
   const grid = document.getElementById('trendsBadges');
-  if (grid) grid.insertAdjacentHTML('beforeend', cards.join(''));
+  if (grid) grid.insertAdjacentHTML('beforeend',
+    badgeCardHtml('Most accurate (lowest avg. loss)', accurateRows, 5) +
+    badgeCardHtml('Blunder-prone', blunderRows, 5));
 }
 
 // ---------- Trends: rating-gap vs accuracy-gap correlation ----------
@@ -2312,32 +2438,40 @@ function buildCorrelationChart(gameAnalysisData, games) {
     .on('mousemove', (ev, d) => {
       const g = d.g;
       const rect = wrap.getBoundingClientRect();
+      const spark = g.analysis ? evalSparkline(g.analysis.evalCurve) : '';
       tooltip.innerHTML = `<b>${g.white.displayName}</b> vs <b>${g.black.displayName}</b><br>` +
         `${d.ratingGap}-pt rating gap &middot; ${d.accuracyGap >= 0 ? '+' : ''}${d.accuracyGap.toFixed(1)} accuracy gap<br>` +
-        `<span class="muted">${formatDate(g.date)}</span>`;
+        (spark ? `${spark}<br>` : '') +
+        `<span class="muted">${formatDate(g.date)} &middot; click dot to watch</span>`;
       tooltip.style.opacity = 1;
       tooltip.style.left = (ev.clientX - rect.left + 16) + 'px';
       tooltip.style.top = (ev.clientY - rect.top + 16) + 'px';
     })
-    .on('mouseleave', () => tooltip.style.opacity = 0);
+    .on('mouseleave', () => tooltip.style.opacity = 0)
+    .on('click', (ev, d) => window.open(d.g.url, '_blank', 'noopener'));
 }
 
 // ---------- Trends: brilliant-moves leaderboard badge ----------
 // Appended to the existing badge grid once brilliancies.json loads
 // (separately from renderTrendsBadges, since that runs earlier off
 // games.json alone) -- who's found the most genuine sacrifices so far.
-function renderBrilliancyBadge(data) {
+function renderBrilliancyBadge(data, games) {
   const list = (data && data.brilliancies) || [];
   if (!list.length) return;
   const counts = {};
-  list.forEach(b => { counts[b.person] = (counts[b.person] || 0) + 1; });
-  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (!top.length) return;
-  const rankRow = (i, nm, val) => `<div class="b-list-row"><span class="rk">${i + 1}</span><span class="nm">${nm}</span><span class="val">${val}</span></div>`;
-  const rows = top.map(([person, count], i) => rankRow(i, nameOf(person), `${count} found`)).join('');
-  const card = `<div class="badge-card"><div class="b-label"><span class="brilliant-badge sm">!!</span> Most brilliant moves</div><div class="b-list">${rows}</div></div>`;
+  const gameIdsByPerson = {};
+  list.forEach(b => {
+    counts[b.person] = (counts[b.person] || 0) + 1;
+    (gameIdsByPerson[b.person] ||= new Set()).add(b.gameId);
+  });
+  const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([person, count]) => ({
+    label: nameOf(person),
+    value: `${count} found`,
+    games: () => games.filter(g => gameIdsByPerson[person].has(g.id)),
+  }));
+  if (!rows.length) return;
   const grid = document.getElementById('trendsBadges');
-  if (grid) grid.insertAdjacentHTML('beforeend', card);
+  if (grid) grid.insertAdjacentHTML('beforeend', badgeCardHtml('<span class="brilliant-badge sm">!!</span> Most brilliant moves', rows, 3));
 }
 
 // ---------- Trends: rating-over-time chart ----------
