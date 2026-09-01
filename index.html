@@ -804,6 +804,59 @@
   }
   .heatmap-note { font-size: 11.5px; color: var(--ink-mute); line-height: 1.5; }
 
+  /* ---------- Player Stats: Piece Explorer (interactive, replaces the old
+     autoplay-through-move-5 heatmap) ---------- */
+  .mode-toggle[hidden] { display: none; }
+  .hm-piece {
+    position: absolute; inset: 14%; opacity: 0; z-index: 2; pointer-events: none;
+    transition: opacity 0.6s ease, transform 0.2s ease;
+  }
+  .hm-piece svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+  .hm-piece.own { cursor: pointer; pointer-events: auto; }
+  .hm-piece.own:hover { transform: scale(1.14); }
+  .hm-piece.own:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .hm-piece.dimmed { opacity: 0.2 !important; }
+  .hm-piece.selected { transform: scale(1.18); filter: drop-shadow(0 0 5px var(--gold)); }
+  .hm-fill.warm { background: var(--gold); }
+  @media (prefers-reduced-motion: reduce) { .hm-piece { transition: none; } }
+
+  .pe-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pe-status { font-size: 11.5px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+  .pe-side-title { font-family: var(--disp); font-size: 17px; font-weight: 700; }
+
+  .pe-games-panel { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--ring); }
+  .pe-games-panel h4 { font-family: var(--disp); font-size: 13.5px; margin: 0 0 3px; letter-spacing: -0.01em; }
+  .pe-games-note { font-size: 11.5px; color: var(--ink-mute); margin: 0 0 10px; }
+  .pe-games-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .pe-game-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--ring); font-size: 12.5px;
+  }
+  .pe-game-result {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 3px 8px; border-radius: 999px; flex: none;
+  }
+  .pe-game-result.win { background: var(--win-wash); color: var(--win); }
+  .pe-game-result.loss { background: var(--loss-wash); color: var(--loss); }
+  .pe-game-result.draw { background: var(--draw-wash); color: var(--draw); }
+  .pe-game-opp { color: var(--ink); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pe-game-date { color: var(--ink-mute); flex: none; font-variant-numeric: tabular-nums; }
+  .pe-game-link { flex: none; color: var(--accent); font-weight: 600; text-decoration: none; padding: 3px 4px; border-radius: 6px; }
+  .pe-game-link:hover { text-decoration: underline; }
+  .pe-game-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 480px) {
+    .pe-game-row { flex-wrap: wrap; }
+    .pe-game-date { order: 3; flex-basis: 100%; }
+  }
+
+  .pe-legend { display: flex; gap: 16px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
+  .pe-legend-item { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--ink-mute); }
+  .pe-swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .pe-gradient-swatch {
+    width: 44px; height: 9px; border-radius: 999px; flex: none;
+    background: linear-gradient(to right, var(--loss), var(--draw), var(--win));
+  }
+
   /* ---------- trends: brilliant moves puzzle ---------- */
   .bm-card {
     background: var(--surface); border: 1px solid var(--ring); border-radius: 16px;
@@ -1060,7 +1113,7 @@
     <div class="section-label">Openings &middot; families played 3+ times get their own slice, same as the club-wide chart</div>
     <div id="playerOpenings" class="openings-wrap"></div>
 
-    <div class="section-label">Opening moves &middot; where each move lands, autoplaying move 1 through 5</div>
+    <div class="section-label">Opening moves &middot; click a piece to see where it goes, then a lit square for the reply</div>
     <div class="heatmap-card" id="playerHeatmapCard"></div>
 
     <div class="foot" id="playerFoot"></div>
@@ -1085,7 +1138,7 @@ let SUNDAY = null;
 let GAMES = null;
 let RATINGS = null;
 let GAME_ANALYSIS = null;
-let MOVE_STATS = null;
+let PIECE_EXPLORER = null;
 let gamesLoadAttempted = false;
 let ratingsLoadAttempted = false;
 let gameAnalysisLoadAttempted = false;
@@ -1260,7 +1313,7 @@ function ensureGraph(tab) {
   if (tab === 'player') {
     if (!DATA || !DATA.players || !DATA.players.length) return;
     if (!graphsBuilt.player) {
-      buildPlayerStats(DATA.players, GAMES || [], MOVE_STATS || { maxOwnMoves: 5, club: { gamesAnalyzed: 0, moveSquares: [] }, players: {} });
+      buildPlayerStats(DATA.players, GAMES || [], PIECE_EXPLORER || { maxOwnMoves: 5, club: { gamesAnalyzed: 0, origins: {}, bloom: {} }, players: {} });
       graphsBuilt.player = true;
     }
   }
@@ -1328,14 +1381,14 @@ async function boot() {
   gameAnalysisLoadAttempted = true;
   ensureGraph('trends');
 
-  // ---------- Opening move-frequency stats (for the Player Stats heatmap) ----------
+  // ---------- Piece Explorer stats (for the Player Stats heatmap) ----------
   try {
-    const res = await fetch('./move_stats.json', {cache: 'no-store'});
-    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching move_stats.json');
-    MOVE_STATS = await res.json();
+    const res = await fetch('./piece_explorer.json', {cache: 'no-store'});
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching piece_explorer.json');
+    PIECE_EXPLORER = await res.json();
   } catch (e) {
     console.error(e);
-    MOVE_STATS = { maxOwnMoves: 5, club: { gamesAnalyzed: 0, moveSquares: [] }, players: {} };
+    PIECE_EXPLORER = { maxOwnMoves: 5, club: { gamesAnalyzed: 0, origins: {}, bloom: {} }, players: {} };
   }
   ensureGraph('player');
 
@@ -2247,111 +2300,466 @@ function renderOpenings(games, containerId) {
   }
 }
 
-// ---------- Player Stats: opening-move heatmap -- autoplays through each
-// of this player's own move 1 through moveStats.maxOwnMoves, fading a
-// heat overlay onto whichever squares that move landed on across every
-// game of theirs on record. Rebuilds its DOM fresh on every call (same
-// pattern as renderOpenings()); returns a stop() the caller invokes
-// before switching to a different player, so the previous autoplay timer
-// doesn't keep ticking in the background.
-function buildPlayerHeatmap(personId, moveStats) {
-  const card = document.getElementById('playerHeatmapCard');
-  const entry = moveStats && moveStats.players && moveStats.players[personId];
+// ---------- Player Stats: Piece Explorer -- click one of your 16 starting
+// pieces to see where its opening moves actually go (your own games, not
+// book theory), then click a lit destination to see how opponents replied,
+// with a frequency/outcome color toggle and links to the real games behind
+// each number. Rebuilds its DOM fresh on every call (same pattern the old
+// per-ply heatmap used); returns a stop() the caller invokes before
+// switching to a different player, so a pending reveal timer from the
+// previous player doesn't keep ticking in the background.
+const PE_START_TYPE = {
+  a1: 'rook', b1: 'knight', c1: 'bishop', d1: 'queen', e1: 'king', f1: 'bishop', g1: 'knight', h1: 'rook',
+  a2: 'pawn', b2: 'pawn', c2: 'pawn', d2: 'pawn', e2: 'pawn', f2: 'pawn', g2: 'pawn', h2: 'pawn',
+};
+// The opponent's own starting position, mirrored the same own-perspective
+// way as every stat square (their home ranks always read as 7/8). Purely
+// decorative -- there's no per-square stat for these -- so the board reads
+// as a real, complete chess position from the moment pieces appear, not
+// just "your" half of one.
+const PE_OPPONENT_START_TYPE = {
+  a8: 'rook', b8: 'knight', c8: 'bishop', d8: 'queen', e8: 'king', f8: 'bishop', g8: 'knight', h8: 'rook',
+  a7: 'pawn', b7: 'pawn', c7: 'pawn', d7: 'pawn', e7: 'pawn', f7: 'pawn', g7: 'pawn', h7: 'pawn',
+};
+const PE_TYPE_KEY = { pawn: 'P', knight: 'N', bishop: 'B', rook: 'R', queen: 'Q', king: 'K' };
+const PE_TYPE_KEY_OPPONENT = { pawn: 'p', knight: 'n', bishop: 'b', rook: 'r', queen: 'q', king: 'k' };
+const PE_RESULT_LABEL = { win: 'Won', loss: 'Lost', draw: 'Draw' };
 
-  if (!entry || !entry.gamesAnalyzed || !entry.moveSquares || !entry.moveSquares.length) {
-    card.innerHTML = '<div class="empty-state"><p>No move data yet for this player &mdash; the opening move-frequency pipeline needs to run at least once.</p></div>';
+function peReadThemeRGB(varName) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  if (v.startsWith('#')) {
+    const hex = v.slice(1);
+    return hex.length === 3
+      ? hex.split('').map(c => parseInt(c + c, 16))
+      : [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+  }
+  const m = v.match(/[\d.]+/g);
+  return m ? m.slice(0, 3).map(Number) : [150, 145, 130];
+}
+
+// Frequency mode (blue overall / gold selected) already existed on the old
+// heatmap; outcome mode is the new "did this move actually work out" lens
+// -- a diverging scale from the site's own loss color through its draw
+// color to its win color, read live off the current theme so dark mode
+// just works, scored on (wins - losses) / total so a lopsided win record
+// and a lopsided loss record land on opposite ends and an even split lands
+// in the middle.
+function peOutcomeColor(outcomes) {
+  const win = (outcomes && outcomes.win) || 0;
+  const loss = (outcomes && outcomes.loss) || 0;
+  const draw = (outcomes && outcomes.draw) || 0;
+  const total = win + loss + draw;
+  const neutral = peReadThemeRGB('--draw');
+  if (!total) return { rgb: neutral, total: 0 };
+  const score = (win - loss) / total; // -1..1
+  const to = score >= 0 ? peReadThemeRGB('--win') : peReadThemeRGB('--loss');
+  const t = Math.abs(score);
+  const rgb = neutral.map((c, i) => Math.round(c + (to[i] - c) * t));
+  return { rgb, total };
+}
+
+function peFormatGameDate(iso) {
+  const d = new Date(iso + 'T00:00:00Z');
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+function buildPieceExplorer(personId, pieceExplorer) {
+  const card = document.getElementById('playerHeatmapCard');
+  const entry = pieceExplorer && pieceExplorer.players && pieceExplorer.players[personId];
+
+  if (!entry || !entry.gamesAnalyzed || !entry.origins || !Object.keys(entry.origins).length) {
+    card.innerHTML = '<div class="empty-state"><p>No move data yet for this player &mdash; the piece explorer pipeline needs to run at least once.</p></div>';
     return () => {};
   }
 
   card.innerHTML = `
-    <div class="heatmap-layout">
-      <div class="hm-board" id="playerHeatmapBoard"></div>
-      <div class="heatmap-side">
-        <div class="heatmap-ply-label" id="heatmapPlyLabel">Move 1</div>
-        <div class="heatmap-ply-dots" id="heatmapDots"></div>
-        <button class="heatmap-play-btn" id="heatmapPlayBtn" type="button">Pause</button>
-        <div class="heatmap-note" id="heatmapNote"></div>
+    <div class="pe-top">
+      <span class="pe-status" id="peStatus" role="status" aria-live="polite"></span>
+      <div class="mode-toggle" id="peModeToggle" role="group" aria-label="Color squares by" hidden>
+        <button type="button" class="mode-btn active" data-mode="frequency">Frequency</button>
+        <button type="button" class="mode-btn" data-mode="outcome">Outcome</button>
       </div>
+    </div>
+    <div class="heatmap-layout">
+      <div class="hm-board" id="peBoard"></div>
+      <div class="heatmap-side">
+        <div class="heatmap-ply-label" id="peStageLabel">Building the picture&hellip;</div>
+        <div class="pe-side-title" id="peSideTitle">Every piece, pooled</div>
+        <div class="heatmap-note" id="peSideBody">Every square any piece has touched in the opening, all at once.</div>
+        <button class="heatmap-play-btn" id="peBackBtn" type="button" style="display:none;">&larr; back to the full board</button>
+      </div>
+    </div>
+    <div class="pe-games-panel" id="peGamesPanel" style="display:none;">
+      <h4 id="peGamesTitle">Games with this move</h4>
+      <p class="pe-games-note" id="peGamesNote"></p>
+      <ul class="pe-games-list" id="peGamesList"></ul>
+    </div>
+    <div class="pe-legend" id="peLegendFrequency">
+      <div class="pe-legend-item"><span class="pe-swatch" style="background:var(--accent)"></span> how often a square gets visited, overall</div>
+      <div class="pe-legend-item"><span class="pe-swatch" style="background:var(--gold)"></span> where the selected piece specifically goes</div>
+      <div class="pe-legend-item"><span class="pe-swatch" style="background:#fff;border:1px solid var(--ring-strong)"></span> your piece &middot; <span class="pe-swatch" style="background:#000;border:1px solid var(--ring-strong)"></span> the opponent's piece</div>
+    </div>
+    <div class="pe-legend" id="peLegendOutcome" style="display:none;">
+      <div class="pe-legend-item"><span class="pe-gradient-swatch"></span> loss-heavy &rarr; win-heavy</div>
+      <div class="pe-legend-item"><span class="pe-swatch" style="background:#fff;border:1px solid var(--ring-strong)"></span> your piece &middot; <span class="pe-swatch" style="background:#000;border:1px solid var(--ring-strong)"></span> the opponent's piece</div>
     </div>`;
 
-  const boardEl = document.getElementById('playerHeatmapBoard');
-  const dotsEl = document.getElementById('heatmapDots');
-  const labelEl = document.getElementById('heatmapPlyLabel');
-  const playBtn = document.getElementById('heatmapPlayBtn');
-  const noteEl = document.getElementById('heatmapNote');
+  const boardEl = document.getElementById('peBoard');
+  const statusEl = document.getElementById('peStatus');
+  const modeToggle = document.getElementById('peModeToggle');
+  const stageLabelEl = document.getElementById('peStageLabel');
+  const sideTitleEl = document.getElementById('peSideTitle');
+  const sideBodyEl = document.getElementById('peSideBody');
+  const backBtn = document.getElementById('peBackBtn');
+  const gamesPanel = document.getElementById('peGamesPanel');
+  const gamesTitle = document.getElementById('peGamesTitle');
+  const gamesNote = document.getElementById('peGamesNote');
+  const gamesList = document.getElementById('peGamesList');
+  const legendFrequency = document.getElementById('peLegendFrequency');
+  const legendOutcome = document.getElementById('peLegendOutcome');
 
-  const maxMoves = entry.moveSquares.length;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const sqEls = {};
-  for (let r = 7; r >= 0; r--) {
-    for (let f = 0; f <= 7; f++) {
-      const sq = 'abcdefgh'[f] + (r + 1);
-      const isLight = (f + r) % 2 === 1;
+  const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  for (let r = 8; r >= 1; r--) {
+    for (let f = 0; f < 8; f++) {
+      const name = FILES[f] + r;
+      const isLight = (f + r) % 2 === 0;
       const div = document.createElement('div');
       div.className = 'hm-sq ' + (isLight ? 'light' : 'dark');
-      div.innerHTML = '<div class="hm-fill"></div><div class="hm-count"></div>';
+      div.dataset.sq = name;
+      div.innerHTML = '<div class="hm-fill"></div><div class="hm-count"></div><div class="hm-piece"></div>';
       boardEl.appendChild(div);
-      sqEls[sq] = div;
+      sqEls[name] = div;
     }
   }
 
-  dotsEl.innerHTML = entry.moveSquares.map((_, i) => `<button type="button" data-ply="${i}" aria-label="Move ${i + 1}"></button>`).join('');
-
-  let ply = 0, timer = null;
-
-  function renderPly(i) {
-    ply = i;
-    const counts = entry.moveSquares[i] || {};
-    const values = Object.values(counts);
-    const max = values.length ? Math.max(...values) : 0;
-    Object.keys(sqEls).forEach(sq => {
-      const el = sqEls[sq];
-      const c = counts[sq] || 0;
-      const fill = el.querySelector('.hm-fill');
-      const label = el.querySelector('.hm-count');
-      if (c > 0 && max > 0) {
-        fill.style.opacity = (0.16 + 0.68 * (c / max)).toFixed(2);
-        label.textContent = c;
-        label.style.opacity = 1;
-      } else {
-        fill.style.opacity = 0;
-        label.style.opacity = 0;
-      }
-    });
-    labelEl.textContent = `Move ${i + 1}`;
-    dotsEl.querySelectorAll('button').forEach((b, idx) => b.classList.toggle('active', idx === i));
-    noteEl.textContent = `${entry.gamesAnalyzed} games analyzed \u00b7 where move ${i + 1} landed`;
+  let colorMode = 'frequency';
+  function setColorMode(mode) {
+    colorMode = mode;
+    modeToggle.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    legendFrequency.style.display = mode === 'frequency' ? '' : 'none';
+    legendOutcome.style.display = mode === 'outcome' ? '' : 'none';
+    if (selectedDest) showReply(selectedSq, selectedDest);
+    else if (selectedSq) showPiece(selectedSq);
   }
-
-  function stopAuto() {
-    if (timer) { clearInterval(timer); timer = null; }
-    playBtn.textContent = 'Play';
-  }
-  function startAuto() {
-    if (timer) return;
-    timer = setInterval(() => renderPly((ply + 1) % maxMoves), 1400);
-    playBtn.textContent = 'Pause';
-  }
-
-  playBtn.addEventListener('click', () => { timer ? stopAuto() : startAuto(); });
-  dotsEl.addEventListener('click', ev => {
-    const btn = ev.target.closest('button[data-ply]');
-    if (!btn) return;
-    stopAuto();
-    renderPly(+btn.dataset.ply);
+  modeToggle.addEventListener('click', ev => {
+    const btn = ev.target.closest('.mode-btn');
+    if (!btn || btn.classList.contains('active')) return;
+    setColorMode(btn.dataset.mode);
   });
 
-  renderPly(0);
-  if (!reduceMotion) startAuto(); else stopAuto();
+  function renderGames(destEntry, title) {
+    const games = (destEntry && destEntry.games) || [];
+    if (!games.length) { gamesPanel.style.display = 'none'; gamesList.innerHTML = ''; return; }
+    gamesPanel.style.display = '';
+    gamesTitle.textContent = title;
+    gamesNote.textContent = destEntry.count > games.length
+      ? `Showing the ${games.length} most recent of ${destEntry.count} games.`
+      : `All ${destEntry.count} game${destEntry.count === 1 ? '' : 's'}.`;
+    gamesList.innerHTML = games.map(g => `
+      <li class="pe-game-row">
+        <span class="pe-game-result ${g.result}">${PE_RESULT_LABEL[g.result] || g.result}</span>
+        <span class="pe-game-opp">vs ${g.opponent}</span>
+        <span class="pe-game-date">${peFormatGameDate(g.date)}</span>
+        <a class="pe-game-link" href="${g.url}" target="_blank" rel="noopener noreferrer" aria-label="View this game on chess.com">View &#8599;</a>
+      </li>
+    `).join('');
+  }
 
-  return stopAuto;
+  let timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function after(ms, fn) { const t = setTimeout(fn, ms); timers.push(t); return t; }
+
+  let selectedSq = null;
+  let selectedDest = null;
+  let replyPieceSquares = [];
+
+  function resetSquares() {
+    Object.values(sqEls).forEach(el => {
+      const fill = el.querySelector('.hm-fill');
+      fill.style.opacity = 0;
+      fill.classList.remove('warm');
+      fill.style.backgroundColor = '';
+      el.querySelector('.hm-count').style.opacity = 0;
+      el.querySelector('.hm-count').textContent = '';
+      const p = el.querySelector('.hm-piece');
+      p.style.opacity = 0;
+      p.innerHTML = '';
+      p.className = 'hm-piece';
+    });
+  }
+
+  function paintBloom() {
+    const bloom = entry.bloom || {};
+    const maxBloom = Math.max(1, ...Object.values(bloom));
+    Object.entries(bloom).forEach(([sq, count]) => {
+      const el = sqEls[sq]; if (!el) return;
+      const intensity = 0.14 + 0.7 * (count / maxBloom);
+      el.querySelector('.hm-fill').style.opacity = intensity.toFixed(2);
+    });
+  }
+
+  function playReveal() {
+    clearTimers();
+    resetSquares();
+    selectedSq = null;
+    selectedDest = null;
+    backBtn.style.display = 'none';
+    modeToggle.hidden = true;
+    gamesPanel.style.display = 'none';
+    stageLabelEl.textContent = 'Stage 1 · building the picture';
+    sideTitleEl.textContent = 'Every piece, pooled';
+    sideBodyEl.textContent = `Warming up every square any piece has touched in the opening, across all ${entry.gamesAnalyzed} recorded games.`;
+    statusEl.textContent = 'revealing…';
+
+    paintBloom();
+
+    after(reduceMotion ? 0 : 1300, () => {
+      stageLabelEl.textContent = 'Stage 2 · the board fills in';
+      sideTitleEl.textContent = 'Click one of your pieces';
+      sideBodyEl.textContent = 'Every piece is back on its starting square — yours in white, the opponent’s in black. Click one of your own to see exactly where it tends to go.';
+      statusEl.textContent = 'click one of your pieces to explore it';
+      Object.entries(PE_START_TYPE).forEach(([sq, type]) => {
+        const el = sqEls[sq]; if (!el) return;
+        const p = el.querySelector('.hm-piece');
+        p.innerHTML = PIECE_SVGS[PE_TYPE_KEY[type]] || '';
+        p.classList.add('own');
+        p.setAttribute('role', 'button');
+        p.setAttribute('tabindex', entry.origins[sq] ? '0' : '-1');
+        p.setAttribute('aria-label', `${type} on ${sq}`);
+        after(reduceMotion ? 0 : 60 * Math.random() * 8, () => { p.style.opacity = 1; });
+      });
+      // Decorative only: the opponent's own starting position, so the board
+      // reads as a complete, real chess position rather than half of one.
+      // Never interactive, never dimmed except during Stage 4 -- it's
+      // context, not a stat.
+      Object.entries(PE_OPPONENT_START_TYPE).forEach(([sq, type]) => {
+        const el = sqEls[sq]; if (!el) return;
+        const p = el.querySelector('.hm-piece');
+        p.innerHTML = PIECE_SVGS[PE_TYPE_KEY_OPPONENT[type]] || '';
+        p.classList.add('opponent-start');
+        p.setAttribute('aria-hidden', 'true');
+        after(reduceMotion ? 0 : 60 * Math.random() * 8, () => { p.style.opacity = 1; });
+      });
+    });
+  }
+
+  function clearBoardHighlights() {
+    Object.values(sqEls).forEach(el => {
+      const fill = el.querySelector('.hm-fill');
+      fill.style.opacity = 0;
+      fill.classList.remove('warm');
+      fill.style.backgroundColor = '';
+      el.querySelector('.hm-count').style.opacity = 0;
+      el.querySelector('.hm-count').textContent = '';
+    });
+    // Stage 4 plants a black opponent piece on each reply square -- clear
+    // those out too whenever we leave or re-enter that stage, so a stale
+    // opponent piece doesn't linger on a square that no longer applies.
+    replyPieceSquares.forEach(sq => {
+      const el = sqEls[sq]; if (!el) return;
+      const p = el.querySelector('.hm-piece');
+      if (p.classList.contains('opponent')) { p.style.opacity = 0; p.innerHTML = ''; p.className = 'hm-piece'; }
+    });
+    replyPieceSquares = [];
+    // Stage 4 quiets the opponent's decorative back rank so the actual
+    // reply pieces stand out -- undo that the moment we leave the stage.
+    Object.keys(PE_OPPONENT_START_TYPE).forEach(name => sqEls[name].querySelector('.hm-piece').classList.remove('dimmed'));
+  }
+
+  function showPiece(sq) {
+    const originEntry = entry.origins[sq];
+    if (!originEntry) return;
+    selectedSq = sq;
+    selectedDest = null;
+    backBtn.style.display = 'inline-block';
+    stageLabelEl.textContent = 'Stage 3 · one piece, isolated';
+    sideTitleEl.textContent = `Your ${originEntry.pieceType} on ${sq}`;
+    const destList = Object.entries(originEntry.destinations).sort((a, b) => b[1].count - a[1].count)
+      .map(([d, v]) => `${d} (${v.count}×)`).join(', ');
+    sideBodyEl.textContent = `Moved ${originEntry.timesMoved} times · went to ${destList}. Click a lit square to see how the opponent usually answers.`;
+    statusEl.textContent = `showing ${sq} only — click a destination, or "back" to reset`;
+    modeToggle.hidden = false;
+    gamesPanel.style.display = 'none'; // no single move picked yet -- that's Stage 4
+
+    clearBoardHighlights();
+    // Only your own 16 pieces ever dim or highlight -- the opponent's
+    // decorative starting position stays put as fixed context.
+    Object.keys(PE_START_TYPE).forEach(name => {
+      const p = sqEls[name].querySelector('.hm-piece');
+      if (name === sq) { p.classList.add('selected'); p.classList.remove('dimmed'); }
+      else { p.classList.remove('selected'); if (p.innerHTML) p.classList.add('dimmed'); }
+    });
+
+    const maxDest = Math.max(...Object.values(originEntry.destinations).map(v => v.count));
+    Object.entries(originEntry.destinations).forEach(([d, v]) => {
+      const el = sqEls[d]; if (!el) return;
+      const fill = el.querySelector('.hm-fill');
+      const label = el.querySelector('.hm-count');
+      if (colorMode === 'outcome') {
+        const { rgb, total } = peOutcomeColor(v.outcomes);
+        fill.classList.remove('warm');
+        fill.style.backgroundColor = `rgb(${rgb.join(',')})`;
+        fill.style.opacity = (0.35 + 0.55 * Math.min(1, total / 10)).toFixed(2);
+      } else {
+        fill.classList.add('warm');
+        fill.style.backgroundColor = '';
+        fill.style.opacity = (0.25 + 0.65 * (v.count / maxDest)).toFixed(2);
+      }
+      label.textContent = v.count;
+      label.style.opacity = 1;
+    });
+    const originFill = sqEls[sq].querySelector('.hm-fill');
+    originFill.classList.add('warm');
+    originFill.style.opacity = 0.18;
+  }
+
+  function showReply(originSq, destSq) {
+    const destEntry = entry.origins[originSq].destinations[destSq];
+    if (!destEntry) return;
+    selectedDest = destSq;
+    backBtn.style.display = 'inline-block';
+    stageLabelEl.textContent = 'Stage 4 · the exchange';
+    sideTitleEl.textContent = `After ${originSq}→${destSq}, the reply`;
+
+    modeToggle.hidden = false;
+    renderGames(destEntry, `Games with ${originSq}→${destSq}`);
+
+    const replies = Object.entries(destEntry.replies || {}).sort((a, b) => b[1].count - a[1].count);
+    clearBoardHighlights();
+    Object.keys(PE_START_TYPE).forEach(name => sqEls[name].querySelector('.hm-piece').classList.add('dimmed'));
+    sqEls[originSq].querySelector('.hm-piece').classList.remove('dimmed');
+    sqEls[originSq].querySelector('.hm-piece').classList.add('selected');
+    Object.keys(PE_OPPONENT_START_TYPE).forEach(name => sqEls[name].querySelector('.hm-piece').classList.add('dimmed'));
+
+    if (!replies.length) {
+      sideBodyEl.textContent = 'No recorded reply yet — every game where this was played ended (or ran past the tracked window) right after.';
+      statusEl.textContent = 'no opponent reply on record — click "back" to try another square';
+      return;
+    }
+
+    // A crowded reply list (a popular move across many games) turns into a
+    // wall of black pieces -- plot only the handful that actually matter
+    // and fold the long tail into a plain-text mention instead.
+    const MAX_SHOWN = 4;
+    const shown = replies.slice(0, MAX_SHOWN);
+    const rest = replies.slice(MAX_SHOWN);
+
+    const totalReplies = replies.reduce((sum, [, r]) => sum + r.count, 0);
+    const shownList = shown.map(([key, r]) => { const [rf, rt] = key.split('>'); return `${rf}→${rt} (${r.count}×)`; }).join(', ');
+    let sideText = `Out of ${totalReplies} games, the opponent replied: ${shownList}`;
+    if (rest.length === 1) {
+      sideText += `, plus one rarer reply (${rest[0][1].count}×)`;
+    } else if (rest.length > 1) {
+      const restTotal = rest.reduce((sum, [, r]) => sum + r.count, 0);
+      sideText += `, plus ${rest.length} rarer replies (${restTotal} games combined)`;
+    }
+    sideBodyEl.textContent = sideText + '.';
+    statusEl.textContent = `showing the reply to ${originSq}→${destSq} — click "back" to try another square`;
+
+    const originFill = sqEls[originSq].querySelector('.hm-fill');
+    originFill.classList.add('warm');
+    originFill.style.opacity = 0.16;
+    const destFill = sqEls[destSq].querySelector('.hm-fill');
+    if (colorMode === 'outcome') {
+      const { rgb, total } = peOutcomeColor(destEntry.outcomes);
+      destFill.classList.remove('warm');
+      destFill.style.backgroundColor = `rgb(${rgb.join(',')})`;
+      destFill.style.opacity = (0.4 + 0.5 * Math.min(1, total / 10)).toFixed(2);
+    } else {
+      destFill.classList.add('warm');
+      destFill.style.backgroundColor = '';
+      destFill.style.opacity = 0.28;
+    }
+
+    const maxReply = Math.max(...shown.map(([, r]) => r.count));
+    shown.forEach(([key, r]) => {
+      const [, rt] = key.split('>');
+      const el = sqEls[rt]; if (!el) return;
+      const fill = el.querySelector('.hm-fill');
+      if (colorMode === 'outcome') {
+        const { rgb, total } = peOutcomeColor(r.outcomes);
+        fill.classList.remove('warm');
+        fill.style.backgroundColor = `rgb(${rgb.join(',')})`;
+        fill.style.opacity = (0.35 + 0.55 * Math.min(1, total / 10)).toFixed(2);
+      } else {
+        fill.classList.add('warm');
+        fill.style.backgroundColor = '';
+        fill.style.opacity = (0.25 + 0.65 * (r.count / maxReply)).toFixed(2);
+      }
+      const label = el.querySelector('.hm-count');
+      label.textContent = r.count;
+      label.style.opacity = 1;
+      const p = el.querySelector('.hm-piece');
+      p.innerHTML = PIECE_SVGS[PE_TYPE_KEY_OPPONENT[r.pieceType]] || '';
+      p.className = 'hm-piece opponent';
+      p.style.opacity = 1;
+      p.setAttribute('aria-hidden', 'true');
+      replyPieceSquares.push(rt);
+    });
+  }
+
+  function backToOverview() {
+    selectedSq = null;
+    selectedDest = null;
+    backBtn.style.display = 'none';
+    stageLabelEl.textContent = 'Stage 2 · the board fills in';
+    sideTitleEl.textContent = 'Click one of your pieces';
+    sideBodyEl.textContent = 'Every piece is back on its starting square — yours in white, the opponent’s in black. Click one of your own to see exactly where it tends to go.';
+    statusEl.textContent = 'click one of your pieces to explore it';
+    modeToggle.hidden = true;
+    gamesPanel.style.display = 'none';
+    clearBoardHighlights();
+    Object.keys(PE_START_TYPE).forEach(name => sqEls[name].querySelector('.hm-piece').classList.remove('dimmed', 'selected'));
+    paintBloom();
+  }
+
+  function onBoardClick(ev) {
+    const sqDiv = ev.target.closest('.hm-sq');
+    if (!sqDiv) return;
+    const sq = sqDiv.dataset.sq;
+
+    if (selectedSq && !selectedDest) {
+      const originEntry = entry.origins[selectedSq];
+      if (sq === selectedSq) { backToOverview(); return; }
+      if (originEntry.destinations[sq]) { showReply(selectedSq, sq); return; }
+      if (entry.origins[sq]) { showPiece(sq); return; }
+      backToOverview();
+      return;
+    }
+    if (selectedSq && selectedDest) {
+      if (entry.origins[sq]) { showPiece(sq); return; }
+      backToOverview();
+      return;
+    }
+    if (entry.origins[sq]) showPiece(sq);
+  }
+  function onBoardKeydown(ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const p = ev.target.closest('.hm-piece.own');
+    if (!p) return;
+    ev.preventDefault();
+    p.closest('.hm-sq').click();
+  }
+  function onBackClick() {
+    if (selectedDest) { showPiece(selectedSq); return; }
+    backToOverview();
+  }
+
+  boardEl.addEventListener('click', onBoardClick);
+  boardEl.addEventListener('keydown', onBoardKeydown);
+  backBtn.addEventListener('click', onBackClick);
+
+  playReveal();
+
+  return function stop() { clearTimers(); };
 }
 
-// ---------- Player Stats: per-player deep dive (openings first; a
-// move-frequency heatmap is planned to follow once that data pipeline
-// exists) ----------
-function buildPlayerStats(players, games, moveStats) {
+// ---------- Player Stats: per-player deep dive (openings first, then the
+// Piece Explorer heatmap) ----------
+function buildPlayerStats(players, games, pieceExplorer) {
   const selectEl = document.getElementById('playerSelect');
   const sorted = [...players].sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
   selectEl.innerHTML = sorted.map(p => `<option value="${p.id}">${p.displayName}</option>`).join('');
@@ -2378,7 +2786,7 @@ function buildPlayerStats(players, games, moveStats) {
       </div>`;
     renderOpenings(gamesFor(personId), 'playerOpenings');
     heatmapCleanup();
-    heatmapCleanup = buildPlayerHeatmap(personId, moveStats);
+    heatmapCleanup = buildPieceExplorer(personId, pieceExplorer);
     document.getElementById('playerFoot').innerHTML =
       `${p.totalGames} games recorded lifetime against fellow SSJakk members &middot; not a live feed`;
   }
